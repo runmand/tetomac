@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Teto MAC — SISMAC</title>
+<style>
+  :root {
+    --azul:    #1A3A5C;
+    --azul2:   #2B5C8A;
+    --verde:   #1A7A4A;
+    --cinza-h: #D5DDE5;
+    --cinza-l: #EEF2F5;
+    --borda:   #B5C3CC;
+    --texto:   #1A2A3A;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: Arial, sans-serif;
+    background: #f0f4f8;
+    color: var(--texto);
+    min-height: 100vh;
+  }
+
+  /* CABEÇALHO */
+  header {
+    background: var(--azul);
+    color: white;
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+  header .logo {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+  header .sub {
+    font-size: 13px;
+    opacity: 0.8;
+    margin-top: 2px;
+  }
+  header .badge {
+    margin-left: auto;
+    background: rgba(255,255,255,0.15);
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+  }
+
+  /* CONTAINER */
+  .container {
+    max-width: 860px;
+    margin: 36px auto;
+    padding: 0 16px;
+  }
+
+  /* CARD DE BUSCA */
+  .card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    padding: 28px 32px;
+    margin-bottom: 24px;
+  }
+  .card h2 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--azul);
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--cinza-h);
+  }
+
+  /* ABAS */
+  .abas {
+    display: flex;
+    gap: 0;
+    margin-bottom: 16px;
+    border-bottom: 2px solid var(--cinza-h);
+  }
+  .aba {
+    padding: 8px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    background: none;
+    color: #777;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: all .2s;
+  }
+  .aba.ativa {
+    color: var(--azul);
+    border-bottom-color: var(--azul);
+  }
+
+  /* CAMPOS */
+  .campo-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+    margin-bottom: 16px;
+  }
+  .campo-row input {
+    flex: 1;
+    padding: 10px 14px;
+    font-size: 14px;
+    border: 1.5px solid var(--borda);
+    border-radius: 8px;
+    outline: none;
+    transition: border .2s;
+    font-family: Arial, sans-serif;
+  }
+  .campo-row input:focus { border-color: var(--azul2); }
+  .campo-row input::placeholder { color: #aaa; }
+
+  /* ANOS */
+  .anos-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+  .ano-check {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    padding: 5px 12px;
+    border: 1.5px solid var(--borda);
+    border-radius: 20px;
+    transition: all .2s;
+    user-select: none;
+  }
+  .ano-check input { display: none; }
+  .ano-check.marcado {
+    background: var(--azul);
+    color: white;
+    border-color: var(--azul);
+  }
+  .label-anos {
+    font-size: 13px;
+    font-weight: 600;
+    color: #555;
+    margin-bottom: 8px;
+  }
+
+  /* BOTÃO */
+  .btn-buscar {
+    padding: 10px 28px;
+    background: var(--azul);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background .2s;
+    white-space: nowrap;
+  }
+  .btn-buscar:hover { background: var(--azul2); }
+  .btn-buscar:disabled { background: #aaa; cursor: not-allowed; }
+
+  /* STATUS */
+  .status {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    margin-bottom: 16px;
+  }
+  .status.carregando {
+    display: flex;
+    background: #e8f0f8;
+    color: var(--azul);
+  }
+  .status.erro {
+    display: flex;
+    background: #fdecea;
+    color: #c0392b;
+  }
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2px solid rgba(26,58,92,0.2);
+    border-top-color: var(--azul);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* RESULTADO */
+  .resultado { display: none; }
+  .resultado.visivel { display: block; }
+
+  .resultado-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .resultado-titulo {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--azul);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+  }
+  .btn-exportar {
+    padding: 8px 20px;
+    background: var(--verde);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity .2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .btn-exportar:hover { opacity: .85; }
+  .icone-excel { font-size: 16px; }
+
+  /* TABELA */
+  .tabela-wrap { overflow-x: auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  thead th {
+    background: var(--cinza-h);
+    color: var(--texto);
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    padding: 10px 14px;
+    border: 1px solid var(--borda);
+    text-align: center;
+  }
+  thead th:not(:first-child) { text-align: right; }
+  tbody tr:nth-child(odd)  { background: #fff; }
+  tbody tr:nth-child(even) { background: var(--cinza-l); }
+  tbody tr:hover { background: #dce8f3; }
+  tbody td {
+    padding: 9px 14px;
+    border: 1px solid var(--borda);
+    color: var(--texto);
+  }
+  tbody td:first-child { font-weight: 700; }
+  tbody td:not(:first-child) {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .variacao-total {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--texto);
+    margin-top: 10px;
+    padding: 6px 4px;
+  }
+
+  /* RODAPÉ */
+  footer {
+    text-align: center;
+    padding: 24px;
+    font-size: 12px;
+    color: #999;
+  }
+  footer a { color: var(--azul2); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">Teto MAC</div>
+    <div class="sub">Evolução do Teto Financeiro de Média e Alta Complexidade</div>
+  </div>
+  <div class="badge">Fonte: SISMAC/MS</div>
+</header>
+
+<div class="container">
+  <div class="card">
+    <h2>Consultar Evolução do Teto MAC</h2>
+
+    <div class="abas">
+      <button class="aba ativa" id="aba-estado" onclick="setAba('Estado')">Estado</button>
+      <button class="aba" id="aba-municipio" onclick="setAba('Município')">Município</button>
+    </div>
+
+    <div class="campo-row">
+      <input type="text" id="campo-busca"
+             placeholder="Digite o nome do estado ou município..."
+             onkeydown="if(event.key==='Enter') buscar()" />
+      <button class="btn-buscar" id="btn-buscar" onclick="buscar()">Buscar</button>
+    </div>
+
+    <div class="label-anos">Anos:</div>
+    <div class="anos-row" id="anos-row"></div>
+  </div>
+
+  <div class="status carregando" id="status-carregando">
+    <div class="spinner"></div>
+    <span>Buscando dados no SISMAC... isso pode levar alguns segundos.</span>
+  </div>
+  <div class="status erro" id="status-erro"></div>
+
+  <div class="resultado card" id="resultado">
+    <div class="resultado-header">
+      <div class="resultado-titulo" id="resultado-titulo"></div>
+      <button class="btn-exportar" onclick="exportar()">
+        <span class="icone-excel">📥</span> Baixar Excel
+      </button>
+    </div>
+    <div class="tabela-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Ano</th>
+            <th>Valor Total – Teto MAC (R$)</th>
+            <th>Valor da Variação (R$)</th>
+            <th>Variação (%)</th>
+          </tr>
+        </thead>
+        <tbody id="tabela-body"></tbody>
+      </table>
+    </div>
+    <div class="variacao-total" id="variacao-total"></div>
+  </div>
+</div>
+
+<footer>
+  Dados: <a href="https://sismac.saude.gov.br" target="_blank">SISMAC — Ministério da Saúde</a>
+</footer>
+
+<script>
+let abaAtual = "Estado";
+let dadosAtuais = [];
+let nomeAtual = "";
+
+// Anos disponíveis
+const anosDisponiveis = [2019, 2020, 2021, 2022, 2023, 2024, 2025];
+const anosSelecionados = new Set([2022, 2023, 2024, 2025]);
+
+function initAnos() {
+  const row = document.getElementById("anos-row");
+  row.innerHTML = "";
+  anosDisponiveis.forEach(ano => {
+    const label = document.createElement("label");
+    label.className = "ano-check" + (anosSelecionados.has(ano) ? " marcado" : "");
+    label.innerHTML = `<input type="checkbox" value="${ano}" ${anosSelecionados.has(ano)?"checked":""}> ${ano}`;
+    label.querySelector("input").addEventListener("change", e => {
+      if (e.target.checked) anosSelecionados.add(ano);
+      else anosSelecionados.delete(ano);
+      label.classList.toggle("marcado", e.target.checked);
+    });
+    label.addEventListener("click", () => label.querySelector("input").click());
+    row.appendChild(label);
+  });
+}
+
+function setAba(aba) {
+  abaAtual = aba;
+  document.getElementById("aba-estado").classList.toggle("ativa", aba === "Estado");
+  document.getElementById("aba-municipio").classList.toggle("ativa", aba === "Município");
+  document.getElementById("campo-busca").placeholder =
+    aba === "Estado" ? "Digite o nome do estado (ex: DISTRITO FEDERAL)..."
+                     : "Digite o nome do município (ex: MANAUS)...";
+}
+
+function fmt(v) {
+  return Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+async function buscar() {
+  const busca = document.getElementById("campo-busca").value.trim();
+  if (!busca) { alert("Digite o nome do estado ou município."); return; }
+  if (anosSelecionados.size === 0) { alert("Selecione pelo menos um ano."); return; }
+
+  document.getElementById("status-carregando").style.display = "flex";
+  document.getElementById("status-erro").style.display = "none";
+  document.getElementById("resultado").classList.remove("visivel");
+  document.getElementById("btn-buscar").disabled = true;
+
+  try {
+    const resp = await fetch("/buscar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        busca: busca.toUpperCase(),
+        aba: abaAtual,
+        anos: [...anosSelecionados]
+      })
+    });
+
+    const json = await resp.json();
+    document.getElementById("status-carregando").style.display = "none";
+
+    if (!resp.ok) {
+      const el = document.getElementById("status-erro");
+      el.style.display = "flex";
+      el.innerHTML = "⚠️ " + (json.erro || "Erro desconhecido");
+      return;
+    }
+
+    dadosAtuais = json.dados;
+    nomeAtual   = json.nome;
+    renderTabela(json.nome, json.dados);
+
+  } catch (e) {
+    document.getElementById("status-carregando").style.display = "none";
+    const el = document.getElementById("status-erro");
+    el.style.display = "flex";
+    el.innerHTML = "⚠️ Erro de conexão com o servidor local.";
+  } finally {
+    document.getElementById("btn-buscar").disabled = false;
+  }
+}
+
+function renderTabela(nome, dados) {
+  document.getElementById("resultado-titulo").textContent =
+    "Evolução do Teto MAC – " + nome;
+
+  const tbody = document.getElementById("tabela-body");
+  tbody.innerHTML = "";
+  dados.forEach(d => {
+    const tr = document.createElement("tr");
+    const pct = d.variacao_pct != null ? (d.variacao_pct >= 0 ? "+" : "") + fmt(d.variacao_pct) + "%" : "—";
+    tr.innerHTML = `
+      <td>${d.ano}</td>
+      <td>${fmt(d.valor_total)}</td>
+      <td>${fmt(d.variacao_valor)}</td>
+      <td>${pct}</td>`;
+    tbody.appendChild(tr);
+  });
+
+  // Variação total do período
+  if (dados.length >= 2) {
+    const v0 = dados[0].valor_total;
+    const vf = dados[dados.length-1].valor_total;
+    const vt = v0 ? (vf - v0) / v0 * 100 : null;
+    if (vt !== null) {
+      document.getElementById("variacao-total").textContent =
+        `VARIAÇÃO ${dados[0].ano} – ${dados[dados.length-1].ano}: ${vt >= 0 ? "+" : ""}${fmt(vt)}%`;
+    }
+  }
+
+  document.getElementById("resultado").classList.add("visivel");
+}
+
+async function exportar() {
+  if (!dadosAtuais.length) return;
+  const resp = await fetch("/exportar", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ nome: nomeAtual, dados: dadosAtuais })
+  });
+  if (!resp.ok) { alert("Erro ao gerar Excel."); return; }
+  const blob = await resp.blob();
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href = url;
+  a.download = `teto_mac_${nomeAtual.toLowerCase().replace(/\s+/g,"_")}.xlsx`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+initAnos();
+setAba("Estado");
+</script>
+</body>
+</html>
