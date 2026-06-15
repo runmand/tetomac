@@ -1,5 +1,6 @@
 import io, re, time, warnings, os
 from flask import Flask, request, send_file, jsonify
+import psycopg2, psycopg2.extras
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from playwright.sync_api import sync_playwright
@@ -7,7 +8,15 @@ from playwright.sync_api import sync_playwright
 warnings.filterwarnings("ignore")
 
 app = Flask(__name__)
-URL = "https://sismac.saude.gov.br/teto_financeiro_anual"
+URL_SISMAC = "https://sismac.saude.gov.br/teto_financeiro_anual"
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
+
+# ── BANCO ──
+
+def get_conn():
+    return psycopg2.connect(DATABASE_URL)
+
+# ── EXCEL / ESTILOS ──
 
 COR_H = "D5DDE5"; COR_P = "EEF2F5"; COR_I = "FFFFFF"; COR_T = "1A2A3A"
 
@@ -28,7 +37,7 @@ def _pct(a, b):
 
 def _parse_num(txt):
     if not txt: return 0.0
-    t = re.sub(r"[^\d,\.\-]", "", txt.strip())
+    t = re.sub(r"[^\d,\.\-]", "", str(txt).strip())
     if "," in t and "." in t:
         t = t.replace(".", "").replace(",", ".")
     elif "," in t:
@@ -36,7 +45,7 @@ def _parse_num(txt):
     try: return float(t)
     except: return 0.0
 
-def _parse_excel_bytes(conteudo, anos_alvo):
+def _parse_excel(conteudo, anos_alvo):
     wb = openpyxl.load_workbook(io.BytesIO(conteudo))
     ws = wb.active
     rows = list(ws.iter_rows(values_only=True))
@@ -59,58 +68,48 @@ def _parse_excel_bytes(conteudo, anos_alvo):
 
 def _ler_html(page, anos_alvo):
     dados = []
-    rows = page.query_selector_all("table tbody tr")
-    for tr in rows:
+    for tr in page.query_selector_all("table tbody tr"):
         tds = tr.query_selector_all("td")
         if len(tds) < 3: continue
         textos = [td.inner_text().strip() for td in tds]
-        try: ano = int(re.sub(r"\D", "", textos[0]))
+        try: ano = int(re.sub(r"\D","",textos[0]))
         except: continue
         if ano < 2000 or ano > 2100: continue
         if anos_alvo and ano not in anos_alvo: continue
         if len(textos) >= 10:
-            vt, vv, vp = _parse_num(textos[7]), _parse_num(textos[8]), _parse_num(textos[9])
+            vt,vv,vp = _parse_num(textos[7]),_parse_num(textos[8]),_parse_num(textos[9])
         elif len(textos) >= 4:
-            vt, vv, vp = _parse_num(textos[1]), _parse_num(textos[2]), _parse_num(textos[3])
+            vt,vv,vp = _parse_num(textos[1]),_parse_num(textos[2]),_parse_num(textos[3])
         else: continue
-        dados.append({"ano": ano, "valor_total": vt, "variacao_valor": vv, "variacao_pct": vp})
+        dados.append({"ano":ano,"valor_total":vt,"variacao_valor":vv,"variacao_pct":vp})
     dados.sort(key=lambda x: x["ano"])
     return dados
 
+# ── COLETA SISMAC ──
+
 def coletar_sismac(busca, aba, anos_alvo):
     with sync_playwright() as pw:
-        browser = pw.chromium.launch(
-            headless=True,
-            args=[
-                "--no-sandbox",
-                "--disable-setuid-sandbox",
-                "--disable-dev-shm-usage",
-                "--disable-gpu",
-            ]
-        )
+        browser = pw.chromium.launch(headless=True, args=[
+            "--no-sandbox","--disable-setuid-sandbox",
+            "--disable-dev-shm-usage","--disable-gpu",
+        ])
         context = browser.new_context(accept_downloads=True)
         page = context.new_page()
         page.on("dialog", lambda d: d.accept())
 
-        page.goto(URL, wait_until="networkidle", timeout=60000)
+        page.goto(URL_SISMAC, wait_until="networkidle", timeout=60000)
         time.sleep(2)
 
-        # Aba
         try:
-            page.get_by_role("tab", name=aba).click()
-            time.sleep(0.8)
+            page.get_by_role("tab", name=aba).click(); time.sleep(0.8)
         except:
             try: page.click(f"text={aba}"); time.sleep(0.8)
             except: pass
 
-        # Autocomplete
         campo = page.locator("input.ui-autocomplete-input").first
         campo.wait_for(timeout=5000)
-        campo.click()
-        campo.fill("")
-        time.sleep(0.3)
-        campo.type(busca[:5], delay=100)
-        time.sleep(2)
+        campo.click(); campo.fill(""); time.sleep(0.3)
+        campo.type(busca[:5], delay=100); time.sleep(2)
 
         page.wait_for_selector(".ui-autocomplete-item", timeout=5000)
         sugestoes = page.locator(".ui-autocomplete-item").all()
@@ -121,9 +120,8 @@ def coletar_sismac(busca, aba, anos_alvo):
             if sugestoes: sugestoes[0].click()
         time.sleep(1)
 
-        # Pesquisa
-        for sel in ["button[id*='pesquis']", "span[id*='pesquis']",
-                    "a[id*='pesquis']", ".fa-search"]:
+        for sel in ["button[id*='pesquis']","span[id*='pesquis']",
+                    "a[id*='pesquis']",".fa-search"]:
             btn = page.query_selector(sel)
             if btn: btn.click(); break
         else:
@@ -132,23 +130,23 @@ def coletar_sismac(busca, aba, anos_alvo):
         page.wait_for_load_state("networkidle", timeout=20000)
         time.sleep(3)
 
-        # Tenta Excel
         try:
             with page.expect_download(timeout=8000) as dl:
                 btn = page.query_selector(
-                    "a img[src*='excel'], img[src*='excel'], "
-                    "a[href*='excel'], img[src*='xls']"
+                    "a img[src*='excel'],img[src*='excel'],"
+                    "a[href*='excel'],img[src*='xls']"
                 )
                 if not btn: raise Exception("sem botão")
                 btn.click()
             from pathlib import Path
-            excel_bytes = Path(dl.value.path()).read_bytes()
-            dados = _parse_excel_bytes(excel_bytes, anos_alvo)
+            dados = _parse_excel(Path(dl.value.path()).read_bytes(), anos_alvo)
         except:
             dados = _ler_html(page, anos_alvo)
 
         browser.close()
     return dados
+
+# ── GERA EXCEL ──
 
 def gerar_excel(nome, dados):
     wb = openpyxl.Workbook()
@@ -171,8 +169,7 @@ def gerar_excel(nome, dados):
 
     for i, d in enumerate(dados):
         bg = COR_I if i%2==0 else COR_P
-        fill = PatternFill("solid", fgColor=bg)
-        fn = Font(name="Arial", size=9)
+        fill = PatternFill("solid", fgColor=bg); fn = Font(name="Arial", size=9)
         c1 = ws.cell(row=row+i, column=1, value=str(d["ano"]))
         c1.font=Font(name="Arial",bold=True,size=9); c1.fill=fill; c1.border=_borda()
         c2 = ws.cell(row=row+i, column=2, value=d["valor_total"])
@@ -205,19 +202,66 @@ def gerar_excel(nome, dados):
 def index():
     return open("index.html", encoding="utf-8").read()
 
+@app.route("/localidades")
+def localidades():
+    """Retorna lista de estados e municípios do banco para o autocomplete."""
+    q = request.args.get("q", "").strip().upper()
+    uf = request.args.get("uf", "").strip().upper()
+    try:
+        conn = get_conn()
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            if q:
+                cur.execute("""
+                    SELECT uf, cod_ibge, nome, desc_gestao
+                    FROM localidades
+                    WHERE (nome ILIKE %s OR uf ILIKE %s)
+                      AND (%s = '' OR uf = %s)
+                    ORDER BY uf, nome
+                    LIMIT 50
+                """, (f"%{q}%", f"%{q}%", uf, uf))
+            else:
+                cur.execute("""
+                    SELECT DISTINCT uf, nome,
+                           MIN(cod_ibge) as cod_ibge,
+                           MIN(desc_gestao) as desc_gestao
+                    FROM localidades
+                    WHERE (%s = '' OR uf = %s)
+                    GROUP BY uf, nome
+                    ORDER BY uf, nome
+                    LIMIT 200
+                """, (uf, uf))
+            rows = cur.fetchall()
+        conn.close()
+        return jsonify([dict(r) for r in rows])
+    except Exception as e:
+        return jsonify({"erro": str(e)}), 500
+
+@app.route("/ufs")
+def ufs():
+    """Retorna lista de UFs únicas."""
+    try:
+        conn = get_conn()
+        with conn.cursor() as cur:
+            cur.execute("SELECT DISTINCT uf FROM localidades ORDER BY uf")
+            rows = [r[0] for r in cur.fetchall()]
+        conn.close()
+        return jsonify(rows)
+    except Exception as e:
+        return jsonify({"erro": str(e)}), 500
+
 @app.route("/buscar", methods=["POST"])
 def buscar():
     d = request.json
     busca = d.get("busca", "").strip()
     aba   = d.get("aba", "Estado")
-    anos  = d.get("anos", [2022, 2023, 2024, 2025])
+    anos  = d.get("anos", [2022,2023,2024,2025])
     anos_alvo = set(anos) if anos else None
     if not busca:
         return jsonify({"erro": "Informe o nome"}), 400
     try:
         dados = coletar_sismac(busca, aba, anos_alvo)
         if not dados:
-            return jsonify({"erro": "Nenhum dado encontrado. Verifique o nome."}), 404
+            return jsonify({"erro": "Nenhum dado encontrado."}), 404
         return jsonify({"dados": dados, "nome": busca})
     except Exception as e:
         return jsonify({"erro": str(e)}), 500
@@ -225,13 +269,13 @@ def buscar():
 @app.route("/exportar", methods=["POST"])
 def exportar():
     d = request.json
-    nome  = d.get("nome", "LOCAL")
-    dados = d.get("dados", [])
+    nome  = d.get("nome","LOCAL")
+    dados = d.get("dados",[])
     if not dados:
         return jsonify({"erro": "Sem dados"}), 400
     buf = gerar_excel(nome, dados)
-    nome_arquivo = f"teto_mac_{nome.lower().replace(' ','_')}.xlsx"
-    return send_file(buf, as_attachment=True, download_name=nome_arquivo,
+    fname = f"teto_mac_{nome.lower().replace(' ','_')}.xlsx"
+    return send_file(buf, as_attachment=True, download_name=fname,
                      mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 if __name__ == "__main__":

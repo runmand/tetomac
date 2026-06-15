@@ -1,18 +1,21 @@
 # SISMAC — Teto MAC
 
-Consulta e exportação da Evolução do Teto Financeiro MAC por estado/município.
+## Setup no Railway
 
-## Deploy no Railway
+### 1. Banco PostgreSQL
+- No Railway: Add Service → Database → PostgreSQL
+- Copie a variável `DATABASE_URL`
 
-1. Suba este repositório no GitHub
-2. No Railway: New Project → Deploy from GitHub repo
-3. Pronto! A URL será gerada automaticamente.
+### 2. Deploy do app
+- Add Service → GitHub Repo → selecione este repositório
+- Na aba Variables, confirme que `DATABASE_URL` está disponível
 
-## Rodar localmente
-
-```bash
-pip install -r requirements.txt
-python -m playwright install chromium
-python servidor.py
+### 3. Popular o banco (uma única vez)
+No terminal do serviço no Railway:
 ```
-Acesse: http://localhost:8000
+python popular_banco.py
+```
+Isso coleta todos os ~6.500 municípios do SISMAC e salva no banco.
+
+### 4. Pronto!
+Acesse a URL gerada pelo Railway.
