@@ -8,13 +8,178 @@ from playwright.sync_api import sync_playwright
 warnings.filterwarnings("ignore")
 
 app = Flask(__name__)
-URL_SISMAC = "https://sismac.saude.gov.br/teto_financeiro_anual"
+URL_SISMAC  = "https://sismac.saude.gov.br/teto_financeiro_anual"
+URL_LISTA   = "https://sismac.saude.gov.br/teto_financeiro_brasil_por_estado_municipio"
+TABELA_ID   = "tetoFinanceiroBrasil"
+FORM_ID     = "formTemplate"
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 
 # ── BANCO ──
 
 def get_conn():
     return psycopg2.connect(DATABASE_URL)
+
+def init_db():
+    """Cria tabela e popula se estiver vazia."""
+    if not DATABASE_URL:
+        print("⚠️  DATABASE_URL não configurada")
+        return
+    try:
+        conn = get_conn()
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS localidades (
+                    id          SERIAL PRIMARY KEY,
+                    regiao      TEXT,
+                    uf          TEXT,
+                    cod_ibge    TEXT,
+                    nome        TEXT,
+                    cod_gestao  TEXT,
+                    desc_gestao TEXT,
+                    teto_atual  NUMERIC,
+                    atualizado  TIMESTAMP DEFAULT NOW(),
+                    UNIQUE(cod_ibge, cod_gestao)
+                );
+                CREATE INDEX IF NOT EXISTS idx_uf   ON localidades(uf);
+                CREATE INDEX IF NOT EXISTS idx_nome ON localidades(nome);
+            """)
+            conn.commit()
+            cur.execute("SELECT COUNT(*) FROM localidades")
+            total = cur.fetchone()[0]
+        conn.close()
+        print(f"✅ Banco OK — {total} registros")
+        if total == 0:
+            print("📥 Banco vazio — populando em background...")
+            import threading
+            threading.Thread(target=popular_banco, daemon=True).start()
+    except Exception as e:
+        print(f"❌ Erro ao iniciar banco: {e}")
+
+def popular_banco():
+    """Coleta todos os municípios do SISMAC e salva no banco."""
+    import requests
+    from bs4 import BeautifulSoup
+
+    print("🌐 Coletando municípios do SISMAC...")
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36",
+        "Accept-Language": "pt-BR,pt;q=0.9",
+    }
+    session = requests.Session()
+    session.headers.update(headers)
+    try:
+        session.get("https://sismac.saude.gov.br/inicio", timeout=15)
+    except:
+        pass
+
+    muns = {}
+
+    def _extrair_cdata(xml):
+        m = re.search(r"<!\[CDATA\[(.*?)\]\]>", xml, re.DOTALL)
+        return m.group(1) if m else xml
+
+    def _parse_brl(txt):
+        t = str(txt).strip().replace(".", "").replace(",", ".")
+        try: return float(t)
+        except: return 0.0
+
+    def _add(html):
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(html, "lxml")
+        for tr in soup.find_all("tr"):
+            spans = tr.find_all("span", title=True)
+            if len(spans) >= 7:
+                vals = [s["title"] for s in spans[:7]]
+            else:
+                tds = tr.find_all("td")
+                if len(tds) < 7: continue
+                vals = [td.get_text(strip=True) for td in tds[:7]]
+            regiao, uf, cod_ibge, nome, cod_gestao, desc_gestao, teto = vals
+            if not re.match(r"^\d{6}$", cod_ibge): continue
+            muns[cod_ibge+"_"+cod_gestao] = {
+                "regiao": regiao, "uf": uf, "cod_ibge": cod_ibge,
+                "nome": nome, "cod_gestao": cod_gestao,
+                "desc_gestao": desc_gestao, "teto_atual": _parse_brl(teto)
+            }
+
+    try:
+        r = session.get(URL_LISTA, timeout=30)
+        soup = BeautifulSoup(r.text, "lxml")
+        vs_inp = soup.find("input", {"name": "javax.faces.ViewState"})
+        vs = vs_inp["value"] if vs_inp else ""
+        _add(r.text)
+        print(f"   Página 1: {len(muns)} registros")
+
+        # Muda para 1000/página
+        r2 = session.post(URL_LISTA, timeout=60, data={
+            "javax.faces.partial.ajax": "true",
+            "javax.faces.source": TABELA_ID,
+            "javax.faces.partial.execute": TABELA_ID,
+            "javax.faces.partial.render": TABELA_ID,
+            f"{TABELA_ID}_encodeFeature": "true",
+            f"{TABELA_ID}_rppDD": "1000",
+            FORM_ID: FORM_ID,
+            "javax.faces.ViewState": vs,
+        })
+        _add(_extrair_cdata(r2.text))
+        sv = BeautifulSoup(r2.text, "lxml").find("input", {"name": "javax.faces.ViewState"})
+        if sv: vs = sv["value"]
+        print(f"   1000/pág: {len(muns)} registros")
+
+        pagina = 2
+        sem_nov = 0
+        while pagina <= 100:
+            first = (pagina - 1) * 1000
+            resp = session.post(URL_LISTA, timeout=30, data={
+                "javax.faces.partial.ajax": "true",
+                "javax.faces.source": TABELA_ID,
+                "javax.faces.partial.execute": TABELA_ID,
+                "javax.faces.partial.render": TABELA_ID,
+                f"{TABELA_ID}_pagination": "true",
+                f"{TABELA_ID}_first": str(first),
+                f"{TABELA_ID}_rows": "1000",
+                f"{TABELA_ID}_skipChildren": "true",
+                f"{TABELA_ID}_encodeFeature": "true",
+                FORM_ID: FORM_ID,
+                "javax.faces.ViewState": vs,
+            })
+            antes = len(muns)
+            _add(_extrair_cdata(resp.text))
+            novos = len(muns) - antes
+            print(f"   Página {pagina}: +{novos} | total: {len(muns)}")
+            sv = BeautifulSoup(resp.text, "lxml").find("input", {"name": "javax.faces.ViewState"})
+            if sv: vs = sv["value"]
+            sem_nov = 0 if novos else sem_nov + 1
+            if sem_nov >= 2: break
+            pagina += 1
+            time.sleep(0.3)
+
+    except Exception as e:
+        print(f"⚠️  Erro na coleta: {e}")
+
+    if not muns:
+        print("❌ Nenhum município coletado")
+        return
+
+    print(f"\n💾 Salvando {len(muns)} registros no banco...")
+    try:
+        conn = get_conn()
+        with conn.cursor() as cur:
+            for m in muns.values():
+                cur.execute("""
+                    INSERT INTO localidades
+                        (regiao, uf, cod_ibge, nome, cod_gestao, desc_gestao, teto_atual)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s)
+                    ON CONFLICT (cod_ibge, cod_gestao) DO UPDATE SET
+                        teto_atual = EXCLUDED.teto_atual,
+                        atualizado = NOW()
+                """, (m["regiao"], m["uf"], m["cod_ibge"], m["nome"],
+                      m["cod_gestao"], m["desc_gestao"], m["teto_atual"]))
+        conn.commit()
+        conn.close()
+        print(f"✅ {len(muns)} registros salvos!")
+    except Exception as e:
+        print(f"❌ Erro ao salvar: {e}")
 
 # ── EXCEL / ESTILOS ──
 
@@ -202,43 +367,20 @@ def gerar_excel(nome, dados):
 def index():
     return open("index.html", encoding="utf-8").read()
 
-@app.route("/localidades")
-def localidades():
-    """Retorna lista de estados e municípios do banco para o autocomplete."""
-    q = request.args.get("q", "").strip().upper()
-    uf = request.args.get("uf", "").strip().upper()
+@app.route("/status")
+def status():
     try:
         conn = get_conn()
-        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            if q:
-                cur.execute("""
-                    SELECT uf, cod_ibge, nome, desc_gestao
-                    FROM localidades
-                    WHERE (nome ILIKE %s OR uf ILIKE %s)
-                      AND (%s = '' OR uf = %s)
-                    ORDER BY uf, nome
-                    LIMIT 50
-                """, (f"%{q}%", f"%{q}%", uf, uf))
-            else:
-                cur.execute("""
-                    SELECT DISTINCT uf, nome,
-                           MIN(cod_ibge) as cod_ibge,
-                           MIN(desc_gestao) as desc_gestao
-                    FROM localidades
-                    WHERE (%s = '' OR uf = %s)
-                    GROUP BY uf, nome
-                    ORDER BY uf, nome
-                    LIMIT 200
-                """, (uf, uf))
-            rows = cur.fetchall()
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM localidades")
+            total = cur.fetchone()[0]
         conn.close()
-        return jsonify([dict(r) for r in rows])
+        return jsonify({"total": total, "pronto": total > 0})
     except Exception as e:
-        return jsonify({"erro": str(e)}), 500
+        return jsonify({"total": 0, "pronto": False, "erro": str(e)})
 
 @app.route("/ufs")
 def ufs():
-    """Retorna lista de UFs únicas."""
     try:
         conn = get_conn()
         with conn.cursor() as cur:
@@ -247,14 +389,32 @@ def ufs():
         conn.close()
         return jsonify(rows)
     except Exception as e:
-        return jsonify({"erro": str(e)}), 500
+        return jsonify([])
+
+@app.route("/localidades")
+def localidades():
+    uf = request.args.get("uf", "").strip().upper()
+    try:
+        conn = get_conn()
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("""
+                SELECT uf, cod_ibge, nome, desc_gestao
+                FROM localidades
+                WHERE uf = %s AND desc_gestao != 'Total UF'
+                ORDER BY nome
+            """, (uf,))
+            rows = cur.fetchall()
+        conn.close()
+        return jsonify([dict(r) for r in rows])
+    except Exception as e:
+        return jsonify([])
 
 @app.route("/buscar", methods=["POST"])
 def buscar():
     d = request.json
-    busca = d.get("busca", "").strip()
-    aba   = d.get("aba", "Estado")
-    anos  = d.get("anos", [2022,2023,2024,2025])
+    busca = d.get("busca","").strip()
+    aba   = d.get("aba","Estado")
+    anos  = d.get("anos",[2022,2023,2024,2025])
     anos_alvo = set(anos) if anos else None
     if not busca:
         return jsonify({"erro": "Informe o nome"}), 400
@@ -277,6 +437,10 @@ def exportar():
     fname = f"teto_mac_{nome.lower().replace(' ','_')}.xlsx"
     return send_file(buf, as_attachment=True, download_name=fname,
                      mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+# Popula banco ao iniciar
+with app.app_context():
+    init_db()
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
