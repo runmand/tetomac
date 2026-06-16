@@ -13,9 +13,11 @@ try:
     cur = conn.cursor()
 
     if os.path.exists("importar_railway.sql"):
-        print("Reimportando localidades e histórico...")
-        cur.execute("TRUNCATE TABLE historico")
-        cur.execute("TRUNCATE TABLE localidades CASCADE")
+        print("Limpando banco completamente...")
+        cur.execute("DROP TABLE IF EXISTS historico CASCADE")
+        cur.execute("DROP TABLE IF EXISTS localidades CASCADE")
+        conn.commit()
+        print("Tabelas removidas, recriando...")
         sql = open("importar_railway.sql", encoding="utf-8").read()
         cur.execute(sql)
         conn.commit()
@@ -26,6 +28,10 @@ try:
         cur.execute("SELECT DISTINCT uf FROM localidades ORDER BY uf")
         ufs = [r[0] for r in cur.fetchall()]
         print(f"✅ UFs: {ufs}")
+        # Verifica AM
+        cur.execute("SELECT valor_total FROM historico WHERE cod_ibge='130000' AND ano=2022")
+        am = cur.fetchone()
+        print(f"✅ AM 2022: {am}")
     else:
         print("Sem arquivo SQL")
 
