@@ -16,9 +16,9 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 RUN playwright install chromium
 
+# Copia tudo - v6
 COPY . .
 RUN chmod +x start.sh
 
-# v5
 EXPOSE 8000
 ENTRYPOINT ["/bin/bash", "start.sh"]
