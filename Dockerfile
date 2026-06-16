@@ -14,11 +14,9 @@ WORKDIR /app
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-
-# Instala só o browser, sem tentar instalar dependências do SO
 RUN playwright install chromium
 
 COPY . .
 
 EXPOSE 8000
-CMD ["gunicorn", "servidor:app", "--bind", "0.0.0.0:8000", "--workers", "2", "--timeout", "120"]
+CMD ["gunicorn", "servidor:app", "--config", "gunicorn.conf.py"]
