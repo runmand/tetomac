@@ -162,28 +162,39 @@ def buscar_no_banco(cod_ibge, cod_gestao, anos_alvo):
     return [dict(r) for r in rows]
 
 def buscar_localidade(nome, aba):
-    """Busca localidade priorizando quem tem histórico no banco."""
+    """Busca localidade priorizando match exato de UF, depois quem tem histórico."""
     conn = get_conn()
     with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         if aba == "Estado":
-            # Tenta achar quem TEM histórico
+            # 1. Match exato de UF com histórico
             cur.execute("""
                 SELECT l.cod_ibge, l.cod_gestao, l.nome FROM localidades l
-                WHERE (l.nome ILIKE %s OR l.uf ILIKE %s)
+                WHERE l.uf = %s
                 AND (l.cod_ibge || l.cod_gestao) IN (
                     SELECT cod_ibge || cod_gestao FROM historico WHERE ano > 0
                 )
                 LIMIT 1
-            """, (f"%{nome}%", nome))
+            """, (nome.upper(),))
             row = cur.fetchone()
             if not row:
+                # 2. Match por nome com histórico
+                cur.execute("""
+                    SELECT l.cod_ibge, l.cod_gestao, l.nome FROM localidades l
+                    WHERE l.nome ILIKE %s
+                    AND (l.cod_ibge || l.cod_gestao) IN (
+                        SELECT cod_ibge || cod_gestao FROM historico WHERE ano > 0
+                    )
+                    LIMIT 1
+                """, (f"%{nome}%",))
+                row = cur.fetchone()
+            if not row:
+                # 3. Fallback sem histórico
                 cur.execute("""SELECT cod_ibge, cod_gestao, nome FROM localidades
-                              WHERE (nome ILIKE %s OR uf ILIKE %s)
-                              AND desc_gestao IN ('Total UF','Gestão Estadual')
-                              ORDER BY desc_gestao DESC LIMIT 1""",
-                            (f"%{nome}%", nome))
+                              WHERE uf = %s AND desc_gestao IN ('Total UF','Gestão Estadual')
+                              ORDER BY desc_gestao DESC LIMIT 1""", (nome.upper(),))
                 row = cur.fetchone()
         else:
+            # Município — match por nome com histórico
             cur.execute("""
                 SELECT l.cod_ibge, l.cod_gestao, l.nome FROM localidades l
                 WHERE l.nome ILIKE %s AND l.desc_gestao='Gestão Municipal'
@@ -355,13 +366,14 @@ def buscar():
     # 1. Tenta buscar no banco primeiro
     print(f"🔍 Buscando: '{busca}' aba={aba}")
     loc = buscar_localidade(busca, aba)
-    print(f"   Localidade: {loc}")
+    print(f"   Localidade encontrada: {loc}")
     if loc:
         dados = buscar_no_banco(loc["cod_ibge"], loc["cod_gestao"], anos_alvo)
-        print(f"   Dados banco: {len(dados)} registros")
+        print(f"   Dados banco: {len(dados)} registros | primeiro: {dados[0] if dados else 'vazio'}")
         if dados:
-            print(f"✅ Banco: {busca} — {len(dados)} anos")
-            return jsonify({"dados":dados,"nome":loc.get("nome",busca),"fonte":"banco"})
+            nome_real = loc.get("nome", busca)
+            print(f"✅ Retornando: {nome_real} — {len(dados)} anos")
+            return jsonify({"dados":dados,"nome":nome_real,"fonte":"banco"})
 
     # 2. Fallback: Playwright
     print(f"🌐 SISMAC: {busca}")
