@@ -13,7 +13,8 @@ try:
     cur = conn.cursor()
 
     if os.path.exists("importar_railway.sql"):
-        print("Importando SQL...")
+        print("Limpando histórico antigo e reimportando...")
+        cur.execute("TRUNCATE TABLE historico")
         sql = open("importar_railway.sql", encoding="utf-8").read()
         cur.execute(sql)
         conn.commit()
