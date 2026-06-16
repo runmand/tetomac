@@ -13,16 +13,20 @@ try:
     cur = conn.cursor()
 
     if os.path.exists("importar_railway.sql"):
-        print("Limpando histórico antigo e reimportando...")
+        print("Reimportando localidades e histórico...")
         cur.execute("TRUNCATE TABLE historico")
         sql = open("importar_railway.sql", encoding="utf-8").read()
         cur.execute(sql)
         conn.commit()
+        cur.execute("SELECT COUNT(*) FROM localidades")
+        print(f"✅ Localidades: {cur.fetchone()[0]}")
         cur.execute("SELECT COUNT(*) FROM historico WHERE ano > 0")
         print(f"✅ Historico: {cur.fetchone()[0]} registros")
+        cur.execute("SELECT DISTINCT uf FROM localidades ORDER BY uf")
+        ufs = [r[0] for r in cur.fetchall()]
+        print(f"✅ UFs: {ufs}")
     else:
-        cur.execute("SELECT COUNT(*) FROM historico WHERE ano > 0")
-        print(f"Historico: {cur.fetchone()[0]} registros (sem arquivo SQL)")
+        print("Sem arquivo SQL")
 
     conn.close()
 except Exception as e:
