@@ -17,28 +17,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN playwright install chromium
 
 COPY . .
+RUN chmod +x start.sh
 
-# v4 - força rebuild
-RUN echo "build ok"
-
+# v5
 EXPOSE 8000
-CMD bash -c '\
-    echo "🚀 PORT=$PORT" && \
-    python -u -c "from servidor import init_db; init_db()" && \
-    python -u -c "
-import os, psycopg2
-conn = psycopg2.connect(os.environ[\"DATABASE_URL\"])
-cur = conn.cursor()
-cur.execute(\"SELECT COUNT(*) FROM historico WHERE ano > 0\")
-total = cur.fetchone()[0]
-print(f\"Historico: {total} registros\")
-if total == 0 and os.path.exists(\"importar_railway.sql\"):
-    print(\"Importando SQL...\")
-    cur.execute(open(\"importar_railway.sql\", encoding=\"utf-8\").read())
-    conn.commit()
-    cur.execute(\"SELECT COUNT(*) FROM historico WHERE ano > 0\")
-    print(f\"Importado: {cur.fetchone()[0]} registros\")
-conn.close()
-" && \
-    echo "▶️ Gunicorn porta $PORT" && \
-    exec gunicorn servidor:app --bind "0.0.0.0:$PORT" --workers 2 --timeout 120'
+ENTRYPOINT ["/bin/bash", "start.sh"]
