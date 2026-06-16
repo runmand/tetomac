@@ -334,9 +334,12 @@ def buscar():
     if not busca: return jsonify({"erro":"Informe o nome"}),400
 
     # 1. Tenta buscar no banco primeiro
+    print(f"🔍 Buscando: '{busca}' aba={aba}")
     loc = buscar_localidade(busca, aba)
+    print(f"   Localidade: {loc}")
     if loc:
         dados = buscar_no_banco(loc["cod_ibge"], loc["cod_gestao"], anos_alvo)
+        print(f"   Dados banco: {len(dados)} registros")
         if dados:
             print(f"✅ Banco: {busca} — {len(dados)} anos")
             return jsonify({"dados":dados,"nome":loc.get("nome",busca),"fonte":"banco"})
