@@ -162,25 +162,44 @@ def buscar_no_banco(cod_ibge, cod_gestao, anos_alvo):
     return [dict(r) for r in rows]
 
 def buscar_localidade(nome, aba):
-    """Encontra o cod_ibge e cod_gestao pelo nome ou sigla UF."""
+    """Busca localidade priorizando quem tem histórico no banco."""
     conn = get_conn()
     with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         if aba == "Estado":
-            cur.execute("""SELECT cod_ibge, cod_gestao, nome FROM localidades
-                          WHERE (nome ILIKE %s OR uf ILIKE %s)
-                          AND desc_gestao IN ('Total UF','Gestão Estadual')
-                          ORDER BY desc_gestao DESC LIMIT 1""",
-                        (f"%{nome}%", nome))
+            # Tenta achar quem TEM histórico
+            cur.execute("""
+                SELECT l.cod_ibge, l.cod_gestao, l.nome FROM localidades l
+                WHERE (l.nome ILIKE %s OR l.uf ILIKE %s)
+                AND (l.cod_ibge || l.cod_gestao) IN (
+                    SELECT cod_ibge || cod_gestao FROM historico WHERE ano > 0
+                )
+                LIMIT 1
+            """, (f"%{nome}%", nome))
+            row = cur.fetchone()
+            if not row:
+                cur.execute("""SELECT cod_ibge, cod_gestao, nome FROM localidades
+                              WHERE (nome ILIKE %s OR uf ILIKE %s)
+                              AND desc_gestao IN ('Total UF','Gestão Estadual')
+                              ORDER BY desc_gestao DESC LIMIT 1""",
+                            (f"%{nome}%", nome))
+                row = cur.fetchone()
         else:
-            cur.execute("""SELECT cod_ibge, cod_gestao, nome FROM localidades
-                          WHERE nome ILIKE %s AND desc_gestao = 'Gestão Municipal'
-                          LIMIT 1""", (f"%{nome}%",))
-        row = cur.fetchone()
+            cur.execute("""
+                SELECT l.cod_ibge, l.cod_gestao, l.nome FROM localidades l
+                WHERE l.nome ILIKE %s AND l.desc_gestao='Gestão Municipal'
+                AND (l.cod_ibge || l.cod_gestao) IN (
+                    SELECT cod_ibge || cod_gestao FROM historico WHERE ano > 0
+                )
+                LIMIT 1
+            """, (f"%{nome}%",))
+            row = cur.fetchone()
+            if not row:
+                cur.execute("""SELECT cod_ibge, cod_gestao, nome FROM localidades
+                              WHERE nome ILIKE %s AND desc_gestao='Gestão Municipal'
+                              LIMIT 1""", (f"%{nome}%",))
+                row = cur.fetchone()
     conn.close()
     return dict(row) if row else None
-
-# ── COLETA SISMAC (fallback) ──
-
 def _parse_excel_bytes(conteudo, anos_alvo):
     wb=openpyxl.load_workbook(io.BytesIO(conteudo)); ws=wb.active
     rows=list(ws.iter_rows(values_only=True))
