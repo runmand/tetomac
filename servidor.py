@@ -162,15 +162,17 @@ def buscar_no_banco(cod_ibge, cod_gestao, anos_alvo):
     return [dict(r) for r in rows]
 
 def buscar_localidade(nome, aba):
-    """Encontra o cod_ibge e cod_gestao de uma localidade pelo nome."""
+    """Encontra o cod_ibge e cod_gestao pelo nome ou sigla UF."""
     conn = get_conn()
     with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         if aba == "Estado":
-            cur.execute("""SELECT cod_ibge, cod_gestao FROM localidades
-                          WHERE nome ILIKE %s AND desc_gestao IN ('Total UF','Gestão Estadual')
-                          LIMIT 1""", (f"%{nome}%",))
+            cur.execute("""SELECT cod_ibge, cod_gestao, nome FROM localidades
+                          WHERE (nome ILIKE %s OR uf ILIKE %s)
+                          AND desc_gestao IN ('Total UF','Gestão Estadual')
+                          ORDER BY desc_gestao DESC LIMIT 1""",
+                        (f"%{nome}%", nome))
         else:
-            cur.execute("""SELECT cod_ibge, cod_gestao FROM localidades
+            cur.execute("""SELECT cod_ibge, cod_gestao, nome FROM localidades
                           WHERE nome ILIKE %s AND desc_gestao = 'Gestão Municipal'
                           LIMIT 1""", (f"%{nome}%",))
         row = cur.fetchone()
@@ -337,7 +339,7 @@ def buscar():
         dados = buscar_no_banco(loc["cod_ibge"], loc["cod_gestao"], anos_alvo)
         if dados:
             print(f"✅ Banco: {busca} — {len(dados)} anos")
-            return jsonify({"dados":dados,"nome":busca,"fonte":"banco"})
+            return jsonify({"dados":dados,"nome":loc.get("nome",busca),"fonte":"banco"})
 
     # 2. Fallback: Playwright
     print(f"🌐 SISMAC: {busca}")
