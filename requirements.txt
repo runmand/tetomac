@@ -1,3 +1,4 @@
+# v2
 flask==3.0.3
 playwright==1.44.0
 openpyxl==3.1.4
