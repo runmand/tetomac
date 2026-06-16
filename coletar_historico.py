@@ -1,308 +1,233 @@
 """
-coletar_historico.py — Coleta o histórico anual de todos os municípios
-e salva no banco PostgreSQL.
-
-Roda em background no Railway via start.sh ou manualmente.
-Pode ser interrompido e retomado — pula municípios já coletados.
-
-Uso:
-    python coletar_historico.py
-    python coletar_historico.py --uf DF        # só um estado
-    python coletar_historico.py --forcar        # recoleta mesmo os já salvos
+Coleta histórico anual via requests (sem navegador).
+Acessa a página de detalhes do SISMAC via POST JSF.
 """
-
-import os, re, io, sys, time, argparse, warnings
+import os, re, io, sys, time, warnings
 from pathlib import Path
-
-import psycopg2, psycopg2.extras
+import psycopg2
+import requests
+from bs4 import BeautifulSoup
 import openpyxl
-from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
 
 warnings.filterwarnings("ignore")
-
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
-URL_SISMAC   = "https://sismac.saude.gov.br/teto_financeiro_anual"
+BASE = "https://sismac.saude.gov.br"
+URL_ANUAL = BASE + "/teto_financeiro_anual"
+
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,*/*;q=0.8",
+    "Accept-Language": "pt-BR,pt;q=0.9",
+    "Referer": BASE + "/inicio",
+}
 
 def get_conn():
     return psycopg2.connect(DATABASE_URL)
 
-# ─────────────────────────────────────────────────────────────
-# BANCO
-# ─────────────────────────────────────────────────────────────
-
-def criar_tabela_historico(conn):
+def criar_tabela(conn):
     with conn.cursor() as cur:
         cur.execute("""
             CREATE TABLE IF NOT EXISTS historico (
-                id           SERIAL PRIMARY KEY,
-                cod_ibge     TEXT NOT NULL,
-                cod_gestao   TEXT NOT NULL,
-                ano          INTEGER NOT NULL,
-                valor_total  NUMERIC,
-                var_valor    NUMERIC,
-                var_pct      NUMERIC,
-                coletado_em  TIMESTAMP DEFAULT NOW(),
+                id SERIAL PRIMARY KEY,
+                cod_ibge TEXT, cod_gestao TEXT, ano INTEGER,
+                valor_total NUMERIC, var_valor NUMERIC, var_pct NUMERIC,
+                coletado_em TIMESTAMP DEFAULT NOW(),
                 UNIQUE(cod_ibge, cod_gestao, ano)
             );
-            CREATE INDEX IF NOT EXISTS idx_hist_ibge ON historico(cod_ibge, cod_gestao);
-            CREATE INDEX IF NOT EXISTS idx_hist_ano  ON historico(ano);
+            CREATE INDEX IF NOT EXISTS idx_hist ON historico(cod_ibge, cod_gestao);
         """)
         conn.commit()
-    print("✅ Tabela historico criada/verificada")
 
-def municipios_pendentes(conn, uf_filtro=None, forcar=False):
-    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-        if forcar:
-            query = "SELECT * FROM localidades"
-            params = ()
-            if uf_filtro:
-                query += " WHERE uf = %s"
-                params = (uf_filtro,)
-        else:
-            # Pula os que já têm histórico coletado
-            query = """
-                SELECT l.* FROM localidades l
-                WHERE NOT EXISTS (
-                    SELECT 1 FROM historico h
-                    WHERE h.cod_ibge = l.cod_ibge
-                    AND h.cod_gestao = l.cod_gestao
-                )
-            """
-            params = ()
-            if uf_filtro:
-                query += " AND l.uf = %s"
-                params = (uf_filtro,)
-
-        query += " ORDER BY l.uf, l.nome"
-        cur.execute(query, params)
-        return cur.fetchall()
-
-def salvar_historico(conn, cod_ibge, cod_gestao, dados):
-    if not dados:
-        return 0
-    with conn.cursor() as cur:
-        for d in dados:
-            cur.execute("""
-                INSERT INTO historico (cod_ibge, cod_gestao, ano, valor_total, var_valor, var_pct)
-                VALUES (%s, %s, %s, %s, %s, %s)
-                ON CONFLICT (cod_ibge, cod_gestao, ano) DO UPDATE SET
-                    valor_total = EXCLUDED.valor_total,
-                    var_valor   = EXCLUDED.var_valor,
-                    var_pct     = EXCLUDED.var_pct,
-                    coletado_em = NOW()
-            """, (cod_ibge, cod_gestao, d["ano"], d["valor_total"], d["var_valor"], d["var_pct"]))
-    conn.commit()
-    return len(dados)
-
-# ─────────────────────────────────────────────────────────────
-# PARSE DO EXCEL
-# ─────────────────────────────────────────────────────────────
-
-def _parse_num(txt):
-    if not txt: return 0.0
-    t = re.sub(r"[^\d,\.\-]", "", str(txt).strip())
-    if "," in t and "." in t:
-        t = t.replace(".", "").replace(",", ".")
-    elif "," in t:
-        t = t.replace(",", ".")
+def _parse_brl(txt):
+    t = str(txt or "").strip().replace(".", "").replace(",", ".")
     try: return float(t)
     except: return 0.0
 
-def parse_excel(conteudo_bytes):
-    wb = openpyxl.load_workbook(io.BytesIO(conteudo_bytes))
-    ws = wb.active
-    rows = list(ws.iter_rows(values_only=True))
-    hi = next((i for i, r in enumerate(rows) if any(r)), 0)
-    dados = []
-    for row in rows[hi+1:]:
-        if not row or not row[1]: continue
-        try: ano = int(float(str(row[1])))
-        except: continue
-        if ano < 2000: continue
-        dados.append({
-            "ano":        ano,
-            "valor_total": float(row[8] or 0),
-            "var_valor":   float(row[9] or 0),
-            "var_pct":     float(row[10] or 0),
-        })
-    dados.sort(key=lambda x: x["ano"])
-    return dados
+def nova_sessao():
+    s = requests.Session()
+    s.headers.update(HEADERS)
+    s.get(BASE + "/inicio", timeout=15)
+    return s
 
-def parse_html(page):
-    dados = []
-    for tr in page.query_selector_all("table tbody tr"):
-        tds = tr.query_selector_all("td")
-        if len(tds) < 3: continue
-        textos = [td.inner_text().strip() for td in tds]
-        try: ano = int(re.sub(r"\D","",textos[0]))
-        except: continue
-        if ano < 2000 or ano > 2100: continue
-        if len(textos) >= 10:
-            vt = _parse_num(textos[7])
-            vv = _parse_num(textos[8])
-            vp = _parse_num(textos[9])
-        elif len(textos) >= 4:
-            vt = _parse_num(textos[1])
-            vv = _parse_num(textos[2])
-            vp = _parse_num(textos[3])
-        else: continue
-        dados.append({"ano": ano, "valor_total": vt, "var_valor": vv, "var_pct": vp})
-    dados.sort(key=lambda x: x["ano"])
-    return dados
+def get_page_state(session):
+    """Carrega a página e retorna (soup, form_id, view_state)."""
+    r = session.get(URL_ANUAL, timeout=30)
+    soup = BeautifulSoup(r.text, "lxml")
+    form = soup.find("form")
+    form_id = form.get("id", "formFiltro") if form else "formFiltro"
+    vs = soup.find("input", {"name": "javax.faces.ViewState"})
+    view_state = vs["value"] if vs else ""
+    return soup, form_id, view_state
 
-# ─────────────────────────────────────────────────────────────
-# COLETA VIA PLAYWRIGHT
-# ─────────────────────────────────────────────────────────────
-
-def coletar_municipio(page, municipio):
-    """Acessa o SISMAC e coleta o histórico de um município."""
-    nome      = municipio["nome"]
-    uf        = municipio["uf"]
-    busca     = nome
-    aba       = "Município" if municipio["desc_gestao"] == "Gestão Municipal" else "Estado"
-
-    # Se for Total UF ou Gestão Estadual, busca pelo nome do estado
-    if municipio["desc_gestao"] in ("Total UF", "Gestão Estadual"):
-        busca = uf
-        aba   = "Estado"
+def buscar_por_ibge(session, cod_ibge, nome, soup, form_id, view_state):
+    """
+    Tenta selecionar o município via AJAX do autocomplete JSF
+    e retorna os dados históricos.
+    """
+    # O autocomplete do SISMAC usa um componente PrimeFaces
+    # Vamos tentar via AJAX query do autocomplete
+    ajax_data = {
+        "javax.faces.partial.ajax": "true",
+        "javax.faces.source": f"{form_id}:autoCompleteMunicipio",
+        "javax.faces.partial.execute": f"{form_id}:autoCompleteMunicipio",
+        "javax.faces.partial.render": f"{form_id}:autoCompleteMunicipio",
+        f"{form_id}:autoCompleteMunicipio_query": nome[:5],
+        form_id: form_id,
+        "javax.faces.ViewState": view_state,
+    }
 
     try:
-        page.goto(URL_SISMAC, wait_until="networkidle", timeout=90000)
-        time.sleep(3)
-
-        # Clica na aba correta
-        try:
-            page.get_by_role("tab", name=aba).click()
-            time.sleep(1)
-        except:
-            try: page.click(f"text={aba}"); time.sleep(1)
-            except: pass
-
-        # Digita no autocomplete
-        campo = page.locator("input.ui-autocomplete-input").first
-        campo.wait_for(timeout=15000)
-        campo.click()
-        campo.fill("")
-        time.sleep(0.5)
-        campo.type(busca[:5], delay=150)
-        time.sleep(3)
-
-        # Clica na sugestão
-        page.wait_for_selector(".ui-autocomplete-item", timeout=10000)
-        sugestoes = page.locator(".ui-autocomplete-item").all()
-        clicou = False
-        for s in sugestoes:
-            texto = s.inner_text().strip().upper()
-            if busca.upper().split()[0] in texto:
-                s.click()
-                clicou = True
+        r = session.post(URL_ANUAL, data=ajax_data, timeout=30)
+        soup_ajax = BeautifulSoup(r.text, "lxml")
+        
+        # Procura sugestões
+        itens = soup_ajax.find_all("li", class_=re.compile("ui-autocomplete"))
+        if not itens:
+            # Tenta outro formato
+            itens = soup_ajax.find_all("item")
+        
+        item_val = None
+        for item in itens:
+            texto = item.get_text(strip=True).upper()
+            if nome.upper().split()[0] in texto:
+                item_val = item.get("data-item-value") or item.get("value") or item.get_text(strip=True)
                 break
-        if not clicou and sugestoes:
-            sugestoes[0].click()
-        time.sleep(1)
+        
+        if not item_val and itens:
+            item_val = itens[0].get("data-item-value") or itens[0].get_text(strip=True)
 
-        # Pesquisa
-        for sel in ["button[id*='pesquis']","span[id*='pesquis']",
-                    "a[id*='pesquis']",".fa-search"]:
-            btn = page.query_selector(sel)
-            if btn: btn.click(); break
-        else:
-            page.keyboard.press("Enter")
+        if not item_val:
+            return []
 
-        page.wait_for_load_state("networkidle", timeout=40000)
-        time.sleep(4)
+        # Seleciona o item e pesquisa
+        select_data = {
+            "javax.faces.partial.ajax": "true",
+            "javax.faces.source": f"{form_id}:autoCompleteMunicipio",
+            "javax.faces.partial.execute": f"{form_id}:autoCompleteMunicipio",
+            "javax.faces.partial.render": form_id,
+            f"{form_id}:autoCompleteMunicipio_input": item_val,
+            f"{form_id}:autoCompleteMunicipio": item_val,
+            form_id: form_id,
+            "javax.faces.ViewState": view_state,
+        }
+        r2 = session.post(URL_ANUAL, data=select_data, timeout=30)
+        
+        # Atualiza view state
+        soup2 = BeautifulSoup(r2.text, "lxml")
+        vs2 = soup2.find("input", {"name": "javax.faces.ViewState"})
+        if vs2: view_state = vs2["value"]
 
-        # Tenta Excel
-        try:
-            with page.expect_download(timeout=8000) as dl:
-                btn = page.query_selector(
-                    "a img[src*='excel'],img[src*='excel'],"
-                    "a[href*='excel'],img[src*='xls']"
-                )
-                if not btn: raise Exception("sem botão Excel")
-                btn.click()
-            dados = parse_excel(Path(dl.value.path()).read_bytes())
-        except:
-            dados = parse_html(page)
+        # Clica em pesquisar
+        pesq_data = {
+            form_id: form_id,
+            f"{form_id}:autoCompleteMunicipio_input": item_val,
+            "javax.faces.ViewState": view_state,
+        }
+        # Adiciona botão de pesquisa
+        for inp in soup.find_all("input", type="submit"):
+            pesq_data[inp.get("name","")] = inp.get("value","")
+        for btn in soup.find_all("button"):
+            if "pesquis" in btn.get("id","").lower():
+                pesq_data[btn.get("name","btn")] = btn.get("value","")
 
-        return dados
+        r3 = session.post(URL_ANUAL, data=pesq_data, timeout=30)
+        return _extrair_tabela(BeautifulSoup(r3.text, "lxml"))
 
     except Exception as e:
-        print(f"      ⚠️  Erro: {e}")
         return []
 
-# ─────────────────────────────────────────────────────────────
-# MAIN
-# ─────────────────────────────────────────────────────────────
+def _extrair_tabela(soup):
+    dados = []
+    for tabela in soup.find_all("table"):
+        ths = [th.get_text(strip=True).lower() for th in tabela.find_all("th")]
+        if any("refer" in h or "ano" in h for h in ths):
+            for tr in tabela.find_all("tr")[1:]:
+                tds = [td.get_text(strip=True) for td in tr.find_all("td")]
+                if len(tds) < 3: continue
+                try: ano = int(re.sub(r"\D","",tds[0]))
+                except: continue
+                if ano < 2000 or ano > 2100: continue
+                if len(tds) >= 10:
+                    vt,vv,vp = _parse_brl(tds[7]),_parse_brl(tds[8]),_parse_brl(tds[9])
+                elif len(tds) >= 4:
+                    vt,vv,vp = _parse_brl(tds[1]),_parse_brl(tds[2]),_parse_brl(tds[3])
+                else: continue
+                dados.append({"ano":ano,"valor_total":vt,"var_valor":vv,"var_pct":vp})
+            if dados: break
+    return dados
+
+def salvar(conn, cod_ibge, cod_gestao, dados):
+    with conn.cursor() as cur:
+        for d in dados:
+            cur.execute("""
+                INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct)
+                VALUES (%s,%s,%s,%s,%s,%s)
+                ON CONFLICT (cod_ibge,cod_gestao,ano) DO UPDATE SET
+                    valor_total=EXCLUDED.valor_total, var_valor=EXCLUDED.var_valor,
+                    var_pct=EXCLUDED.var_pct, coletado_em=NOW()
+            """, (cod_ibge,cod_gestao,d["ano"],d["valor_total"],d["var_valor"],d["var_pct"]))
+    conn.commit()
 
 def main():
+    import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--uf",     default="", help="Coletar só uma UF (ex: DF)")
-    parser.add_argument("--forcar", action="store_true", help="Recoleta mesmo os já salvos")
-    parser.add_argument("--delay",  type=float, default=1.0, help="Delay entre municípios (seg)")
+    parser.add_argument("--uf", default="")
+    parser.add_argument("--forcar", action="store_true")
+    parser.add_argument("--delay", type=float, default=1.5)
     args = parser.parse_args()
 
-    if not DATABASE_URL:
-        print("❌ DATABASE_URL não definida")
-        sys.exit(1)
-
     conn = get_conn()
-    criar_tabela_historico(conn)
+    criar_tabela(conn)
 
-    pendentes = municipios_pendentes(conn, args.uf.upper() or None, args.forcar)
+    query = "SELECT * FROM localidades"
+    params = []
+    if args.uf:
+        query += " WHERE uf=%s"
+        params = [args.uf.upper()]
+    if not args.forcar:
+        sub = " AND" if args.uf else " WHERE"
+        query += f"{sub} NOT EXISTS (SELECT 1 FROM historico h WHERE h.cod_ibge=localidades.cod_ibge AND h.cod_gestao=localidades.cod_gestao)"
+    query += " ORDER BY uf, nome"
+
+    import psycopg2.extras
+    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        cur.execute(query, params)
+        pendentes = cur.fetchall()
+
     total = len(pendentes)
-    print(f"\n📋 {total} municípios para coletar")
-    if total == 0:
-        print("✅ Tudo já coletado!")
-        conn.close()
-        return
+    print(f"📋 {total} municípios pendentes")
+    if not total:
+        print("✅ Tudo coletado!"); conn.close(); return
 
-    print(f"⏱️  Tempo estimado: ~{total * 35 // 60} minutos\n")
+    session = nova_sessao()
+    soup, form_id, vs = get_page_state(session)
+    print(f"   form_id: {form_id}")
 
-    with sync_playwright() as pw:
-        browser = pw.chromium.launch(
-            headless=True,
-            args=["--no-sandbox","--disable-setuid-sandbox",
-                  "--disable-dev-shm-usage","--disable-gpu"]
-        )
-        context = browser.new_context(accept_downloads=True)
-        page    = context.new_page()
-        page.on("dialog", lambda d: d.accept())
+    ok=0; erro=0
+    for i, m in enumerate(pendentes):
+        print(f"[{i+1}/{total}] {m['nome']} ({m['uf']})", end=" ", flush=True)
 
-        ok = 0; erro = 0; vazio = 0
+        dados = buscar_por_ibge(session, m["cod_ibge"], m["nome"], soup, form_id, vs)
 
-        for i, m in enumerate(pendentes):
-            print(f"[{i+1}/{total}] {m['nome']} ({m['uf']}) — {m['desc_gestao']}", end=" ", flush=True)
+        if dados:
+            salvar(conn, m["cod_ibge"], m["cod_gestao"], dados)
+            print(f"→ {len(dados)} anos ✅")
+            ok += 1
+        else:
+            print("→ sem dados ⚠️")
+            erro += 1
+            # Renova sessão a cada 50 erros
+            if erro % 50 == 0:
+                session = nova_sessao()
+                soup, form_id, vs = get_page_state(session)
 
-            dados = coletar_municipio(page, m)
+        if (i+1) % 100 == 0:
+            print(f"\n   📊 {i+1}/{total} | OK:{ok} | Erro:{erro}\n")
 
-            if dados:
-                n = salvar_historico(conn, m["cod_ibge"], m["cod_gestao"], dados)
-                print(f"→ {n} anos ✅")
-                ok += 1
-            else:
-                print("→ sem dados ⚠️")
-                # Salva um registro vazio para não tentar de novo
-                salvar_historico(conn, m["cod_ibge"], m["cod_gestao"], [
-                    {"ano": 0, "valor_total": 0, "var_valor": 0, "var_pct": 0}
-                ])
-                vazio += 1
-
-            # Progresso a cada 50
-            if (i+1) % 50 == 0:
-                conn2 = get_conn()
-                with conn2.cursor() as cur:
-                    cur.execute("SELECT COUNT(DISTINCT cod_ibge||cod_gestao) FROM historico WHERE ano > 0")
-                    total_banco = cur.fetchone()[0]
-                conn2.close()
-                print(f"\n   📊 Progresso: {i+1}/{total} | Com dados: {ok} | Vazios: {vazio} | Banco: {total_banco}\n")
-
-            time.sleep(args.delay)
-
-        browser.close()
+        time.sleep(args.delay)
 
     conn.close()
-    print(f"\n🎉 Concluído! ✅ {ok} coletados | ⚠️ {vazio} sem dados")
+    print(f"\n🎉 Concluído! OK:{ok} | Sem dados:{erro}")
 
 if __name__ == "__main__":
     main()

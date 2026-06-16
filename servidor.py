@@ -212,7 +212,9 @@ def _ler_html(page, anos_alvo):
 
 def coletar_sismac(busca, aba, anos_alvo):
     with sync_playwright() as pw:
-        browser=pw.chromium.launch(headless=True,args=["--no-sandbox","--disable-setuid-sandbox","--disable-dev-shm-usage","--disable-gpu"])
+        browser=pw.chromium.launch(headless=True,args=[
+            "--no-sandbox","--disable-setuid-sandbox","--disable-dev-shm-usage",
+            "--disable-gpu","--disable-software-rasterizer","--single-process"])
         context=browser.new_context(accept_downloads=True)
         page=context.new_page(); page.on("dialog",lambda d:d.accept())
         page.goto(URL_SISMAC,wait_until="networkidle",timeout=90000); time.sleep(3)
