@@ -15,6 +15,7 @@ try:
     if os.path.exists("importar_railway.sql"):
         print("Reimportando localidades e histórico...")
         cur.execute("TRUNCATE TABLE historico")
+        cur.execute("TRUNCATE TABLE localidades CASCADE")
         sql = open("importar_railway.sql", encoding="utf-8").read()
         cur.execute(sql)
         conn.commit()
