@@ -18429,24 +18429,6 @@ INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VA
 ('211110','1',2023,2951450.28,303260.44,11.45),
 ('211110','1',2024,3080507.28,129057.0,4.37),
 ('211110','1',2025,3156707.28,76200.0,2.47),
-('211130','1',2008,130907366.18,0,0),
-('211130','1',2009,159033174.44,28125808.26,21.49),
-('211130','1',2010,186735609.59,27702435.15,17.42),
-('211130','1',2011,196535756.2,9800146.61,5.25),
-('211130','1',2012,196732211.82,196455.62,0.1),
-('211130','1',2013,252639906.64,55907694.82,28.42),
-('211130','1',2014,260637003.08,7997096.44,3.17),
-('211130','1',2015,261012700.6,375697.52,0.14),
-('211130','1',2016,284347857.8,23335157.2,8.94),
-('211130','1',2017,287781589.49,3433731.69,1.21),
-('211130','1',2018,293378382.94,5596793.45,1.94),
-('211130','1',2019,303230869.97,9852487.03,3.36),
-('211130','1',2020,307177332.72,3946462.75,1.3),
-('211130','1',2021,310033424.11,2856091.39,0.93),
-('211130','1',2022,315710105.23,5676681.12,1.83),
-('211130','1',2023,348914120.4,33204015.17,10.52),
-('211130','1',2024,483256945.33,134342824.93,38.5),
-('211130','1',2025,495736355.74,12479410.41,2.58),
 ('211140','1',2008,96800.0,0,0),
 ('211140','1',2009,96800.0,0,0),
 ('211140','1',2010,105600.0,8800.0,9.09),
@@ -18851,11 +18833,7 @@ INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VA
 ('310110','1',2025,431736.0,0,0),
 ('310120','1',2015,60000.0,0,0),
 ('310120','1',2016,90000.0,30000.0,50.0),
-('310120','1',2017,90000.0,0,0)
-ON CONFLICT (cod_ibge,cod_gestao,ano) DO UPDATE SET
-    valor_total=EXCLUDED.valor_total,var_valor=EXCLUDED.var_valor,var_pct=EXCLUDED.var_pct;
-
-INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VALUES
+('310120','1',2017,90000.0,0,0),
 ('310120','1',2018,7500.0,-82500.0,-91.67),
 ('310120','1',2019,776173.7,768673.7,10248.98),
 ('310120','1',2020,1052784.35,276610.65,35.64),
@@ -18873,7 +18851,11 @@ INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VA
 ('310160','1',2010,25944999.72,5244186.22,25.33),
 ('310160','1',2011,27521837.56,1576837.84,6.08),
 ('310160','1',2012,31471482.89,3949645.33,14.35),
-('310160','1',2013,36608072.3,5136589.41,16.32),
+('310160','1',2013,36608072.3,5136589.41,16.32)
+ON CONFLICT (cod_ibge,cod_gestao,ano) DO UPDATE SET
+    valor_total=EXCLUDED.valor_total,var_valor=EXCLUDED.var_valor,var_pct=EXCLUDED.var_pct;
+
+INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VALUES
 ('310160','1',2014,42834645.47,6226573.17,17.01),
 ('310160','1',2015,46133502.58,3298857.11,7.7),
 ('310160','1',2016,47808949.4,1675446.82,3.63),
@@ -19355,11 +19337,7 @@ INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VA
 ('310670','1',2009,36391241.54,5800776.87,18.96),
 ('310670','1',2010,40092826.11,3701584.57,10.17),
 ('310670','1',2011,43415405.19,3322579.08,8.29),
-('310670','1',2012,69292136.84,25876731.65,59.6)
-ON CONFLICT (cod_ibge,cod_gestao,ano) DO UPDATE SET
-    valor_total=EXCLUDED.valor_total,var_valor=EXCLUDED.var_valor,var_pct=EXCLUDED.var_pct;
-
-INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VALUES
+('310670','1',2012,69292136.84,25876731.65,59.6),
 ('310670','1',2013,72115340.27,2823203.43,4.07),
 ('310670','1',2014,73971869.34,1856529.07,2.57),
 ('310670','1',2015,72931298.02,-1040571.32,-1.41),
@@ -19377,7 +19355,11 @@ INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VA
 ('310680','1',2025,17441.52,6147.22,54.43),
 ('310690','1',2012,56610.0,0,0),
 ('310690','1',2013,339660.0,283050.0,500.0),
-('310690','1',2014,339660.0,0,0),
+('310690','1',2014,339660.0,0,0)
+ON CONFLICT (cod_ibge,cod_gestao,ano) DO UPDATE SET
+    valor_total=EXCLUDED.valor_total,var_valor=EXCLUDED.var_valor,var_pct=EXCLUDED.var_pct;
+
+INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VALUES
 ('310690','1',2015,339660.0,0,0),
 ('310690','1',2016,339660.0,0,0),
 ('310690','1',2017,339660.0,0,0),
@@ -19859,11 +19841,7 @@ INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VA
 ('311270','1',2022,339660.0,0,0),
 ('311270','1',2023,362679.0,23019.0,6.78),
 ('311270','1',2024,554284.26,191605.26,52.83),
-('311270','1',2025,616259.06,61974.8,11.18)
-ON CONFLICT (cod_ibge,cod_gestao,ano) DO UPDATE SET
-    valor_total=EXCLUDED.valor_total,var_valor=EXCLUDED.var_valor,var_pct=EXCLUDED.var_pct;
-
-INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VALUES
+('311270','1',2025,616259.06,61974.8,11.18),
 ('311280','1',2015,60000.0,0,0),
 ('311280','1',2016,90000.0,30000.0,50.0),
 ('311280','1',2017,90000.0,0,0),
@@ -19881,7 +19859,11 @@ INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VA
 ('311320','1',2018,1061514.6,880351.14,485.94),
 ('311320','1',2019,1063348.38,1833.78,0.17),
 ('311320','1',2020,1140130.79,76782.41,7.22),
-('311320','1',2021,1371672.13,231541.34,20.31),
+('311320','1',2021,1371672.13,231541.34,20.31)
+ON CONFLICT (cod_ibge,cod_gestao,ano) DO UPDATE SET
+    valor_total=EXCLUDED.valor_total,var_valor=EXCLUDED.var_valor,var_pct=EXCLUDED.var_pct;
+
+INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VALUES
 ('311320','1',2022,1722807.56,351135.43,25.6),
 ('311320','1',2023,2034356.09,311548.53,18.08),
 ('311320','1',2024,2171347.26,136991.17,6.73),
@@ -20363,11 +20345,7 @@ INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VA
 ('311930','1',2020,2188865.09,392392.82,21.84),
 ('311930','1',2021,2281511.65,92646.56,4.23),
 ('311930','1',2022,2511549.14,230037.49,10.08),
-('311930','1',2023,2611258.18,99709.04,3.97)
-ON CONFLICT (cod_ibge,cod_gestao,ano) DO UPDATE SET
-    valor_total=EXCLUDED.valor_total,var_valor=EXCLUDED.var_valor,var_pct=EXCLUDED.var_pct;
-
-INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VALUES
+('311930','1',2023,2611258.18,99709.04,3.97),
 ('311930','1',2024,3761842.15,1150583.97,44.06),
 ('311930','1',2025,4035078.71,273236.56,7.26),
 ('311940','1',2008,96800.0,0,0),
@@ -20385,7 +20363,11 @@ INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VA
 ('311940','1',2020,15580149.1,974419.26,6.67),
 ('311940','1',2021,18307231.46,2727082.36,17.5),
 ('311940','1',2022,20119201.54,1811970.08,9.9),
-('311940','1',2023,26946568.23,6827366.69,33.93),
+('311940','1',2023,26946568.23,6827366.69,33.93)
+ON CONFLICT (cod_ibge,cod_gestao,ano) DO UPDATE SET
+    valor_total=EXCLUDED.valor_total,var_valor=EXCLUDED.var_valor,var_pct=EXCLUDED.var_pct;
+
+INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VALUES
 ('311940','1',2024,28223868.07,1277299.84,4.74),
 ('311940','1',2025,30046715.29,1822847.22,6.46),
 ('311950','1',2013,7500.0,0,0),
@@ -20867,11 +20849,7 @@ INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VA
 ('312610','1',2009,96800.0,0,0),
 ('312610','1',2010,105600.0,8800.0,9.09),
 ('312610','1',2011,105600.0,0,0),
-('312610','1',2012,175410.0,69810.0,66.11)
-ON CONFLICT (cod_ibge,cod_gestao,ano) DO UPDATE SET
-    valor_total=EXCLUDED.valor_total,var_valor=EXCLUDED.var_valor,var_pct=EXCLUDED.var_pct;
-
-INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VALUES
+('312610','1',2012,175410.0,69810.0,66.11),
 ('312610','1',2013,584011.68,408601.68,232.94),
 ('312610','1',2014,612025.44,28013.76,4.8),
 ('312610','1',2015,471660.0,-140365.44,-22.93),
@@ -20889,7 +20867,11 @@ INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VA
 ('312620','1',2019,125221.76,62755.16,100.46),
 ('312620','1',2020,127754.4,2532.64,2.02),
 ('312620','1',2021,128428.37,673.97,0.53),
-('312620','1',2022,132423.16,3994.79,3.11),
+('312620','1',2022,132423.16,3994.79,3.11)
+ON CONFLICT (cod_ibge,cod_gestao,ano) DO UPDATE SET
+    valor_total=EXCLUDED.valor_total,var_valor=EXCLUDED.var_valor,var_pct=EXCLUDED.var_pct;
+
+INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VALUES
 ('312620','1',2023,131589.24,-833.92,-0.63),
 ('312620','1',2024,132589.38,1000.14,0.76),
 ('312620','1',2025,132054.52,-534.86,-0.4),
@@ -21371,11 +21353,7 @@ INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VA
 ('313170','1',2010,11361055.6,1453599.89,14.67),
 ('313170','1',2011,11597866.78,236811.18,2.08),
 ('313170','1',2012,12345148.46,747281.68,6.44),
-('313170','1',2013,12737647.66,392499.2,3.18)
-ON CONFLICT (cod_ibge,cod_gestao,ano) DO UPDATE SET
-    valor_total=EXCLUDED.valor_total,var_valor=EXCLUDED.var_valor,var_pct=EXCLUDED.var_pct;
-
-INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VALUES
+('313170','1',2013,12737647.66,392499.2,3.18),
 ('313170','1',2014,14735808.68,1998161.02,15.69),
 ('313170','1',2015,15551165.76,815357.08,5.53),
 ('313170','1',2016,15616721.13,65555.37,0.42),
@@ -21393,7 +21371,11 @@ INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VA
 ('313180','1',2019,477360.0,0,0),
 ('313180','1',2020,477360.0,0,0),
 ('313180','1',2021,617691.33,140331.33,29.4),
-('313180','1',2022,1060961.52,443270.19,71.76),
+('313180','1',2022,1060961.52,443270.19,71.76)
+ON CONFLICT (cod_ibge,cod_gestao,ano) DO UPDATE SET
+    valor_total=EXCLUDED.valor_total,var_valor=EXCLUDED.var_valor,var_pct=EXCLUDED.var_pct;
+
+INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VALUES
 ('313180','1',2023,1261484.7,200523.18,18.9),
 ('313180','1',2024,1551212.34,289727.64,22.97),
 ('313180','1',2025,2772041.8,1220829.46,78.7),
@@ -21875,11 +21857,7 @@ INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VA
 ('313652','1',2025,54232.73,13502.99,33.15),
 ('313655','1',2024,11921.82,0,0),
 ('313655','1',2025,16500.48,4578.66,38.41),
-('313620','1',2008,4880309.43,0,0)
-ON CONFLICT (cod_ibge,cod_gestao,ano) DO UPDATE SET
-    valor_total=EXCLUDED.valor_total,var_valor=EXCLUDED.var_valor,var_pct=EXCLUDED.var_pct;
-
-INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VALUES
+('313620','1',2008,4880309.43,0,0),
 ('313620','1',2009,6090508.68,1210199.25,24.8),
 ('313620','1',2010,7295893.76,1205385.08,19.79),
 ('313620','1',2011,7630866.38,334972.62,4.59),
@@ -21897,7 +21875,11 @@ INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VA
 ('313620','1',2023,13770973.06,2212516.43,19.14),
 ('313620','1',2024,15198813.02,1427839.96,10.37),
 ('313620','1',2025,15657342.07,458529.05,3.02),
-('313630','1',2012,2524222.55,0,0),
+('313630','1',2012,2524222.55,0,0)
+ON CONFLICT (cod_ibge,cod_gestao,ano) DO UPDATE SET
+    valor_total=EXCLUDED.valor_total,var_valor=EXCLUDED.var_valor,var_pct=EXCLUDED.var_pct;
+
+INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VALUES
 ('313630','1',2013,2927374.99,403152.44,15.97),
 ('313630','1',2014,2886597.24,-40777.75,-1.39),
 ('313630','1',2015,2859031.71,-27565.53,-0.95),
@@ -22379,11 +22361,7 @@ INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VA
 ('314100','1',2021,214694.34,2216.94,1.04),
 ('314100','1',2022,220948.54,6254.2,2.91),
 ('314100','1',2023,222872.04,1923.5,0.87),
-('314100','1',2024,224389.98,1517.94,0.68)
-ON CONFLICT (cod_ibge,cod_gestao,ano) DO UPDATE SET
-    valor_total=EXCLUDED.valor_total,var_valor=EXCLUDED.var_valor,var_pct=EXCLUDED.var_pct;
-
-INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VALUES
+('314100','1',2024,224389.98,1517.94,0.68),
 ('314100','1',2025,481120.79,256730.81,114.41),
 ('314110','1',2012,1675415.47,0,0),
 ('314110','1',2013,1982315.46,306899.99,18.32),
@@ -22401,7 +22379,11 @@ INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VA
 ('314110','1',2025,1923505.96,-133668.8,-6.5),
 ('314120','1',2024,41459.74,0,0),
 ('314120','1',2025,62442.18,20982.44,50.61),
-('314130','1',2024,23623.42,0,0),
+('314130','1',2024,23623.42,0,0)
+ON CONFLICT (cod_ibge,cod_gestao,ano) DO UPDATE SET
+    valor_total=EXCLUDED.valor_total,var_valor=EXCLUDED.var_valor,var_pct=EXCLUDED.var_pct;
+
+INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VALUES
 ('314130','1',2025,35311.83,11688.41,49.48),
 ('314140','1',2012,56610.0,0,0),
 ('314140','1',2013,369660.0,313050.0,552.99),
@@ -22883,11 +22865,7 @@ INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VA
 ('314630','1',2023,2439172.73,147305.66,6.43),
 ('314630','1',2024,2664738.4,225565.67,9.25),
 ('314630','1',2025,2539194.58,-125543.82,-4.71),
-('314655','1',2015,60000.0,0,0)
-ON CONFLICT (cod_ibge,cod_gestao,ano) DO UPDATE SET
-    valor_total=EXCLUDED.valor_total,var_valor=EXCLUDED.var_valor,var_pct=EXCLUDED.var_pct;
-
-INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VALUES
+('314655','1',2015,60000.0,0,0),
 ('314655','1',2016,90000.0,30000.0,50.0),
 ('314655','1',2017,90000.0,0,0),
 ('314655','1',2018,30546.32,-59453.68,-66.06),
@@ -22905,7 +22883,11 @@ INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VA
 ('314660','1',2024,8462.7,0,0),
 ('314660','1',2025,13194.12,4731.42,55.91),
 ('314670','1',2015,169830.0,0,0),
-('314670','1',2016,339660.0,169830.0,100.0),
+('314670','1',2016,339660.0,169830.0,100.0)
+ON CONFLICT (cod_ibge,cod_gestao,ano) DO UPDATE SET
+    valor_total=EXCLUDED.valor_total,var_valor=EXCLUDED.var_valor,var_pct=EXCLUDED.var_pct;
+
+INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VALUES
 ('314670','1',2017,377160.0,37500.0,11.04),
 ('314670','1',2018,347160.0,-30000.0,-7.95),
 ('314670','1',2019,339660.0,-7500.0,-2.16),
@@ -23387,11 +23369,7 @@ INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VA
 ('315240','1',2023,897753.2,-15369.8,-1.68),
 ('315240','1',2024,1008656.7,110903.5,12.35),
 ('315240','1',2025,932520.73,-76135.97,-7.55),
-('315250','1',2012,66172.5,0,0)
-ON CONFLICT (cod_ibge,cod_gestao,ano) DO UPDATE SET
-    valor_total=EXCLUDED.valor_total,var_valor=EXCLUDED.var_valor,var_pct=EXCLUDED.var_pct;
-
-INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VALUES
+('315250','1',2012,66172.5,0,0),
 ('315250','1',2013,459164.24,392991.74,593.89),
 ('315250','1',2014,23718405.57,23259241.33,5065.56),
 ('315250','1',2015,53840988.13,30122582.56,127.0),
@@ -23409,7 +23387,11 @@ INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VA
 ('315260','1',2017,552603.17,388501.71,236.74),
 ('315260','1',2018,563309.84,10706.67,1.94),
 ('315260','1',2019,563306.86,-2.98,0),
-('315260','1',2020,555717.13,-7589.73,-1.35),
+('315260','1',2020,555717.13,-7589.73,-1.35)
+ON CONFLICT (cod_ibge,cod_gestao,ano) DO UPDATE SET
+    valor_total=EXCLUDED.valor_total,var_valor=EXCLUDED.var_valor,var_pct=EXCLUDED.var_pct;
+
+INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VALUES
 ('315260','1',2021,582747.66,27030.53,4.86),
 ('315260','1',2022,552415.74,-30331.92,-5.2),
 ('315260','1',2023,551934.72,-481.02,-0.09),
@@ -23891,11 +23873,7 @@ INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VA
 ('315820','1',2019,339660.0,0,0),
 ('315820','1',2020,339660.0,0,0),
 ('315820','1',2021,339660.0,0,0),
-('315820','1',2022,2337919.28,1998259.28,588.31)
-ON CONFLICT (cod_ibge,cod_gestao,ano) DO UPDATE SET
-    valor_total=EXCLUDED.valor_total,var_valor=EXCLUDED.var_valor,var_pct=EXCLUDED.var_pct;
-
-INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VALUES
+('315820','1',2022,2337919.28,1998259.28,588.31),
 ('315820','1',2023,2651103.66,313184.38,13.4),
 ('315820','1',2024,2722431.66,71328.0,2.69),
 ('315820','1',2025,2690088.23,-32343.43,-1.19),
@@ -23913,7 +23891,11 @@ INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VA
 ('315935','1',2025,10787.88,3929.34,57.29),
 ('315950','1',2024,22798.7,0,0),
 ('315950','1',2025,36222.14,13423.44,58.88),
-('315960','1',2012,56610.0,0,0),
+('315960','1',2012,56610.0,0,0)
+ON CONFLICT (cod_ibge,cod_gestao,ano) DO UPDATE SET
+    valor_total=EXCLUDED.valor_total,var_valor=EXCLUDED.var_valor,var_pct=EXCLUDED.var_pct;
+
+INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VALUES
 ('315960','1',2013,364660.0,308050.0,544.16),
 ('315960','1',2014,409282.98,44622.98,12.24),
 ('315960','1',2015,399660.0,-9622.98,-2.35),
@@ -24395,11 +24377,7 @@ INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VA
 ('316292','1',2012,56610.0,0,0),
 ('316292','1',2013,374305.85,317695.85,561.2),
 ('316292','1',2014,422810.04,48504.19,12.96),
-('316292','1',2015,429660.0,6849.96,1.62)
-ON CONFLICT (cod_ibge,cod_gestao,ano) DO UPDATE SET
-    valor_total=EXCLUDED.valor_total,var_valor=EXCLUDED.var_valor,var_pct=EXCLUDED.var_pct;
-
-INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VALUES
+('316292','1',2015,429660.0,6849.96,1.62),
 ('316292','1',2016,429660.0,0,0),
 ('316292','1',2017,1029660.0,600000.0,139.65),
 ('316292','1',2018,2318655.0,1288995.0,125.19),
@@ -24417,7 +24395,11 @@ INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VA
 ('316300','1',2013,25000.0,0,0),
 ('316300','1',2014,26794.96,1794.96,7.18),
 ('316300','1',2017,0,-26794.96,-100.0),
-('316300','1',2024,9812.86,9812.86,0),
+('316300','1',2024,9812.86,9812.86,0)
+ON CONFLICT (cod_ibge,cod_gestao,ano) DO UPDATE SET
+    valor_total=EXCLUDED.valor_total,var_valor=EXCLUDED.var_valor,var_pct=EXCLUDED.var_pct;
+
+INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VALUES
 ('316300','1',2025,15182.62,5369.76,54.72),
 ('316310','1',2024,26118.22,0,0),
 ('316310','1',2025,39661.2,13542.98,51.85),
@@ -24899,11 +24881,7 @@ INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VA
 ('317020','1',2022,261495756.16,16275762.14,6.64),
 ('317020','1',2023,266254750.17,4758994.01,1.82),
 ('317020','1',2024,271419228.42,5164478.25,1.94),
-('317020','1',2025,286411939.31,14992710.89,5.52)
-ON CONFLICT (cod_ibge,cod_gestao,ano) DO UPDATE SET
-    valor_total=EXCLUDED.valor_total,var_valor=EXCLUDED.var_valor,var_pct=EXCLUDED.var_pct;
-
-INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VALUES
+('317020','1',2025,286411939.31,14992710.89,5.52),
 ('316990','1',2015,7957613.94,0,0),
 ('316990','1',2016,28612130.5,20654516.56,259.56),
 ('316990','1',2017,30012140.75,1400010.25,4.89),
@@ -24921,7 +24899,11 @@ INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VA
 ('317030','1',2025,12786.72,1000.14,8.49),
 ('317040','1',2012,56610.0,0,0),
 ('317040','1',2013,339660.0,283050.0,500.0),
-('317040','1',2014,339660.0,0,0),
+('317040','1',2014,339660.0,0,0)
+ON CONFLICT (cod_ibge,cod_gestao,ano) DO UPDATE SET
+    valor_total=EXCLUDED.valor_total,var_valor=EXCLUDED.var_valor,var_pct=EXCLUDED.var_pct;
+
+INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VALUES
 ('317040','1',2015,483660.0,144000.0,42.4),
 ('317040','1',2016,483660.0,0,0),
 ('317040','1',2017,423660.0,-60000.0,-12.41),
@@ -25152,7 +25134,38 @@ INSERT INTO historico (cod_ibge,cod_gestao,ano,valor_total,var_valor,var_pct) VA
 ('310100','1',2022,922172.48,-23402.22,-2.47),
 ('310100','1',2023,920534.77,-1637.71,-0.18),
 ('310100','1',2024,988278.36,67743.59,7.36),
-('310100','1',2025,968757.24,-19521.12,-1.98)
+('310100','1',2025,968757.24,-19521.12,-1.98),
+('210800','1',2013,366519.84,0,0),
+('210800','1',2014,763039.68,396519.84,108.19),
+('210800','1',2015,819649.68,56610.0,7.42),
+('210800','1',2016,1102699.68,283050.0,34.53),
+('210800','1',2017,1100183.43,-2516.25,-0.23),
+('210800','1',2018,1014160.68,-86022.75,-7.82),
+('210800','1',2019,1006660.68,-7500.0,-0.74),
+('210800','1',2020,1211410.68,204750.0,20.34),
+('210800','1',2021,1920203.88,708793.2,58.51),
+('210800','1',2022,2431214.72,511010.84,26.61),
+('210800','1',2023,2481832.41,50617.69,2.08),
+('210800','1',2024,2858915.76,377083.35,15.19),
+('210800','1',2025,2962944.6,104028.84,3.64),
+('211130','1',2008,130907366.18,0,0),
+('211130','1',2009,159033174.44,28125808.26,21.49),
+('211130','1',2010,186735609.59,27702435.15,17.42),
+('211130','1',2011,196535756.2,9800146.61,5.25),
+('211130','1',2012,196732211.82,196455.62,0.1),
+('211130','1',2013,252639906.64,55907694.82,28.42),
+('211130','1',2014,260637003.08,7997096.44,3.17),
+('211130','1',2015,261012700.6,375697.52,0.14),
+('211130','1',2016,284347857.8,23335157.2,8.94),
+('211130','1',2017,287781589.49,3433731.69,1.21),
+('211130','1',2018,293378382.94,5596793.45,1.94),
+('211130','1',2019,303230869.97,9852487.03,3.36),
+('211130','1',2020,307177332.72,3946462.75,1.3),
+('211130','1',2021,310033424.11,2856091.39,0.93),
+('211130','1',2022,315710105.23,5676681.12,1.83),
+('211130','1',2023,348914120.4,33204015.17,10.52),
+('211130','1',2024,483256945.33,134342824.93,38.5),
+('211130','1',2025,495736355.74,12479410.41,2.58)
 ON CONFLICT (cod_ibge,cod_gestao,ano) DO UPDATE SET
     valor_total=EXCLUDED.valor_total,var_valor=EXCLUDED.var_valor,var_pct=EXCLUDED.var_pct;
 
