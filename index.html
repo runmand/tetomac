@@ -279,7 +279,7 @@ async function buscar() {
     const resp = await fetch("/buscar", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ busca, aba, anos: [...anosSel] })
+      body: JSON.stringify({ busca, aba, uf, anos: [...anosSel] })
     });
     const json = await resp.json();
     document.getElementById("status-carregando").style.display = "none";

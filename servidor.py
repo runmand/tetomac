@@ -161,7 +161,7 @@ def buscar_no_banco(cod_ibge, cod_gestao, anos_alvo):
     conn.close()
     return [dict(r) for r in rows]
 
-def buscar_localidade(nome, aba):
+def buscar_localidade(nome, aba, uf=""):
     """Busca localidade priorizando match exato de UF, depois quem tem histórico."""
     conn = get_conn()
     with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
@@ -194,16 +194,30 @@ def buscar_localidade(nome, aba):
                               ORDER BY desc_gestao DESC LIMIT 1""", (nome.upper(),))
                 row = cur.fetchone()
         else:
-            # Município — match por nome com histórico
-            cur.execute("""
-                SELECT l.cod_ibge, l.cod_gestao, l.nome FROM localidades l
-                WHERE l.nome ILIKE %s AND l.desc_gestao='Gestão Municipal'
-                AND (l.cod_ibge || l.cod_gestao) IN (
-                    SELECT cod_ibge || cod_gestao FROM historico WHERE ano > 0
-                )
-                LIMIT 1
-            """, (f"%{nome}%",))
-            row = cur.fetchone()
+            # Município — match por nome E UF (evita pegar cidade homônima de outro estado)
+            if uf:
+                cur.execute("""
+                    SELECT l.cod_ibge, l.cod_gestao, l.nome FROM localidades l
+                    WHERE l.nome ILIKE %s AND l.uf = %s AND l.desc_gestao='Gestão Municipal'
+                    AND (l.cod_ibge || l.cod_gestao) IN (
+                        SELECT cod_ibge || cod_gestao FROM historico WHERE ano > 0
+                    )
+                    LIMIT 1
+                """, (f"%{nome}%", uf.upper()))
+                row = cur.fetchone()
+            else:
+                row = None
+            if not row:
+                # Fallback sem UF (caso não tenha sido enviada)
+                cur.execute("""
+                    SELECT l.cod_ibge, l.cod_gestao, l.nome FROM localidades l
+                    WHERE l.nome ILIKE %s AND l.desc_gestao='Gestão Municipal'
+                    AND (l.cod_ibge || l.cod_gestao) IN (
+                        SELECT cod_ibge || cod_gestao FROM historico WHERE ano > 0
+                    )
+                    LIMIT 1
+                """, (f"%{nome}%",))
+                row = cur.fetchone()
             if not row:
                 cur.execute("""SELECT cod_ibge, cod_gestao, nome FROM localidades
                               WHERE nome ILIKE %s AND desc_gestao='Gestão Municipal'
@@ -359,13 +373,14 @@ def buscar():
     d=request.json
     busca=d.get("busca","").strip()
     aba=d.get("aba","Estado")
+    uf=d.get("uf","").strip()
     anos=d.get("anos",[2022,2023,2024,2025])
     anos_alvo=set(anos) if anos else None
     if not busca: return jsonify({"erro":"Informe o nome"}),400
 
     # 1. Tenta buscar no banco primeiro
-    print(f"🔍 Buscando: '{busca}' aba={aba}")
-    loc = buscar_localidade(busca, aba)
+    print(f"🔍 Buscando: '{busca}' aba={aba} uf={uf}")
+    loc = buscar_localidade(busca, aba, uf)
     print(f"   Localidade encontrada: {loc}")
     if loc:
         dados = buscar_no_banco(loc["cod_ibge"], loc["cod_gestao"], anos_alvo)
