@@ -173,7 +173,10 @@
   <div class="resultado card" id="resultado">
     <div class="resultado-header">
       <div class="resultado-titulo" id="resultado-titulo"></div>
-      <button class="btn-exportar" onclick="exportar()">📥 Baixar Excel</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn-exportar" onclick="exportar()">📥 Baixar Excel</button>
+        <button class="btn-exportar" style="background:#2B5C8A" onclick="exportarEstado()" id="btn-exportar-estado">📊 Estado Completo</button>
+      </div>
     </div>
     <div style="overflow-x:auto">
       <table>
@@ -328,6 +331,35 @@ function renderTabela(nome, dados) {
         `VARIAÇÃO ${dados[0].ano} – ${dados[dados.length-1].ano}: ${vt>=0?"+":""}${fmt(vt)}%`;
   }
   document.getElementById("resultado").classList.add("visivel");
+}
+
+async function exportarEstado() {
+  const uf = document.getElementById("sel-uf").value;
+  if (!uf) { alert("Selecione um estado primeiro."); return; }
+  if (!anosSel.size) { alert("Selecione pelo menos um ano."); return; }
+
+  const btn = document.getElementById("btn-exportar-estado");
+  btn.textContent = "⏳ Gerando...";
+  btn.disabled = true;
+
+  try {
+    const resp = await fetch("/exportar-estado", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ uf, anos: [...anosSel] })
+    });
+    if (!resp.ok) { alert("Erro ao gerar Excel."); return; }
+    const blob = await resp.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `teto_mac_${uf}_completo.xlsx`;
+    a.click();
+  } catch(e) {
+    alert("Erro: " + e.message);
+  } finally {
+    btn.textContent = "📊 Estado Completo";
+    btn.disabled = false;
+  }
 }
 
 async function exportar() {

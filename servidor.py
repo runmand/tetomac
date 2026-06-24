@@ -399,6 +399,101 @@ def buscar():
     except Exception as e:
         return jsonify({"erro":str(e)}),500
 
+@app.route("/exportar-estado", methods=["POST"])
+def exportar_estado():
+    """Gera Excel com todos os municípios do estado + compilado do estado."""
+    d = request.json
+    uf   = d.get("uf","").strip().upper()
+    anos = d.get("anos",[2022,2023,2024,2025])
+    anos_alvo = set(anos) if anos else None
+
+    if not uf:
+        return jsonify({"erro": "Informe a UF"}), 400
+
+    try:
+        conn = get_conn()
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            # Busca todos os municípios do estado com histórico
+            query = """
+                SELECT l.nome, l.desc_gestao, l.cod_ibge, l.cod_gestao,
+                       h.ano, h.valor_total, h.var_valor, h.var_pct
+                FROM localidades l
+                JOIN historico h ON h.cod_ibge=l.cod_ibge AND h.cod_gestao=l.cod_gestao
+                WHERE l.uf = %s AND h.ano > 0
+            """
+            params = [uf]
+            if anos_alvo:
+                query += " AND h.ano = ANY(%s)"
+                params.append(list(anos_alvo))
+            query += " ORDER BY l.desc_gestao, l.nome, h.ano"
+            cur.execute(query, params)
+            rows = cur.fetchall()
+        conn.close()
+
+        if not rows:
+            return jsonify({"erro": "Nenhum dado encontrado"}), 404
+
+        # Gera Excel com uma aba por município + aba compilado
+        wb = openpyxl.Workbook()
+        ws_comp = wb.active
+        ws_comp.title = "Compilado"
+
+        # Cabeçalho compilado
+        hdrs = ["Município", "Tipo Gestão", "Ano", "Valor Total (R$)", "Variação (R$)", "Variação (%)"]
+        for col, h in enumerate(hdrs, 1):
+            c = ws_comp.cell(row=1, column=col, value=h)
+            fill = PatternFill("solid", fgColor="D5DDE5")
+            font = Font(name="Arial", bold=True, size=9, color="1A2A3A")
+            borda = Border(left=Side(style="thin",color="B5C3CC"),right=Side(style="thin",color="B5C3CC"),
+                          top=Side(style="thin",color="B5C3CC"),bottom=Side(style="thin",color="B5C3CC"))
+            c.fill=fill; c.font=font; c.border=borda
+            c.alignment=Alignment(horizontal="center",vertical="center")
+        ws_comp.row_dimensions[1].height = 25
+
+        # Agrupa por município
+        from collections import defaultdict
+        municipios = defaultdict(list)
+        for r in rows:
+            key = (r["nome"], r["desc_gestao"], r["cod_ibge"], r["cod_gestao"])
+            municipios[key].append(r)
+
+        linha = 2
+        for (nome, desc, cod_ibge, cod_gestao), dados in municipios.items():
+            dados.sort(key=lambda x: x["ano"])
+            for i, d in enumerate(dados):
+                bg = "FFFFFF" if linha%2==0 else "EEF2F5"
+                fill = PatternFill("solid", fgColor=bg)
+                fn = Font(name="Arial", size=9)
+                borda = Border(left=Side(style="thin",color="B5C3CC"),right=Side(style="thin",color="B5C3CC"),
+                              top=Side(style="thin",color="B5C3CC"),bottom=Side(style="thin",color="B5C3CC"))
+                vals = [nome, desc, str(d["ano"]), float(d["valor_total"] or 0),
+                        float(d["var_valor"] or 0), float(d["var_pct"] or 0)/100 if d["var_pct"] else None]
+                for col, v in enumerate(vals, 1):
+                    c = ws_comp.cell(row=linha, column=col, value=v)
+                    c.fill=fill; c.font=fn; c.border=borda
+                    if col == 4: c.number_format='#,##0.00'; c.alignment=Alignment(horizontal="right")
+                    if col == 5: c.number_format='#,##0.00'; c.alignment=Alignment(horizontal="right")
+                    if col == 6: c.number_format='0.00%'; c.alignment=Alignment(horizontal="right")
+                linha += 1
+
+        # Ajusta larguras
+        ws_comp.column_dimensions["A"].width = 35
+        ws_comp.column_dimensions["B"].width = 18
+        ws_comp.column_dimensions["C"].width = 8
+        ws_comp.column_dimensions["D"].width = 22
+        ws_comp.column_dimensions["E"].width = 22
+        ws_comp.column_dimensions["F"].width = 12
+
+        buf = io.BytesIO()
+        wb.save(buf); buf.seek(0)
+        fname = f"teto_mac_{uf}_completo.xlsx"
+        return send_file(buf, as_attachment=True, download_name=fname,
+                        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+    except Exception as e:
+        return jsonify({"erro": str(e)}), 500
+
+
 @app.route("/exportar", methods=["POST"])
 def exportar():
     d=request.json
