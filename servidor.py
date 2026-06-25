@@ -416,6 +416,22 @@ def buscar():
     except Exception as e:
         return jsonify({"erro":str(e)}),500
 
+@app.route("/debug-busca")
+def debug_busca():
+    """Testa a busca no banco sem Playwright."""
+    nome = request.args.get("nome", "GUARUJÁ")
+    uf   = request.args.get("uf", "SP")
+    aba  = request.args.get("aba", "Município")
+    try:
+        loc = buscar_localidade(nome, aba, uf)
+        if loc:
+            dados = buscar_no_banco(loc["cod_ibge"], loc["cod_gestao"], {2022,2023,2024,2025})
+            return jsonify({"loc": loc, "dados_count": len(dados), "primeiro": dados[0] if dados else None})
+        return jsonify({"loc": None, "erro": "localidade não encontrada"})
+    except Exception as e:
+        import traceback
+        return jsonify({"erro": str(e), "trace": traceback.format_exc()})
+
 @app.route("/exportar-estado", methods=["POST"])
 def exportar_estado():
     """Gera Excel com todos os municípios do estado + compilado do estado."""
