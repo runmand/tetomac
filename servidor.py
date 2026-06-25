@@ -194,29 +194,46 @@ def buscar_localidade(nome, aba, uf=""):
                               ORDER BY desc_gestao DESC LIMIT 1""", (nome.upper(),))
                 row = cur.fetchone()
         else:
-            # Município — match por nome E UF (evita pegar cidade homônima de outro estado)
-            if uf:
+            # Município — busca com prioridade: exato+UF > parcial+UF > exato sem UF > parcial sem UF
+            row = None
+            nome_upper = nome.upper()
+            uf_upper = uf.upper() if uf else ""
+
+            if uf_upper:
+                # 1. Match exato por nome + UF
+                cur.execute("""
+                    SELECT l.cod_ibge, l.cod_gestao, l.nome FROM localidades l
+                    WHERE UPPER(l.nome) = %s AND l.uf = %s AND l.desc_gestao='Gestão Municipal'
+                    AND (l.cod_ibge || l.cod_gestao) IN (
+                        SELECT cod_ibge || cod_gestao FROM historico WHERE ano > 0
+                    )
+                    LIMIT 1
+                """, (nome_upper, uf_upper))
+                row = cur.fetchone()
+
+            if not row and uf_upper:
+                # 2. Match parcial por nome + UF
                 cur.execute("""
                     SELECT l.cod_ibge, l.cod_gestao, l.nome FROM localidades l
                     WHERE l.nome ILIKE %s AND l.uf = %s AND l.desc_gestao='Gestão Municipal'
                     AND (l.cod_ibge || l.cod_gestao) IN (
                         SELECT cod_ibge || cod_gestao FROM historico WHERE ano > 0
                     )
+                    ORDER BY LENGTH(l.nome) ASC
                     LIMIT 1
-                """, (f"%{nome}%", uf.upper()))
+                """, (f"%{nome}%", uf_upper))
                 row = cur.fetchone()
-            else:
-                row = None
+
             if not row:
-                # Fallback sem UF (caso não tenha sido enviada)
+                # 3. Match exato sem UF
                 cur.execute("""
                     SELECT l.cod_ibge, l.cod_gestao, l.nome FROM localidades l
-                    WHERE l.nome ILIKE %s AND l.desc_gestao='Gestão Municipal'
+                    WHERE UPPER(l.nome) = %s AND l.desc_gestao='Gestão Municipal'
                     AND (l.cod_ibge || l.cod_gestao) IN (
                         SELECT cod_ibge || cod_gestao FROM historico WHERE ano > 0
                     )
                     LIMIT 1
-                """, (f"%{nome}%",))
+                """, (nome_upper,))
                 row = cur.fetchone()
             if not row:
                 cur.execute("""SELECT cod_ibge, cod_gestao, nome FROM localidades
