@@ -159,7 +159,7 @@
             style="width:100%;box-sizing:border-box;padding:10px 14px;border:1.5px solid #cdd5de;border-radius:8px;font-size:15px;font-family:inherit;background:#fff;color:#1a2a3a;outline:none;cursor:pointer"
             oninput="filtrarMunicipios(this.value)"
             onfocus="abrirDropdown()"
-            onblur="setTimeout(fecharDropdown,200)"
+            onblur="setTimeout(fecharDropdown,300)"
             readonly
           />
           <div id="dropdown-municipio" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid #cdd5de;border-top:none;border-radius:0 0 8px 8px;max-height:260px;overflow-y:auto;z-index:999;box-shadow:0 4px 12px rgba(0,0,0,0.1)">
@@ -259,6 +259,7 @@ async function carregarUFs() {
 let todosMunicipios = [];
 
 function abrirDropdown() {
+  dropdownAberto = true;
   document.getElementById("filtro-municipio").removeAttribute("readonly");
   document.getElementById("filtro-municipio").value = "";
   document.getElementById("busca-municipio").value = "";
@@ -267,7 +268,11 @@ function abrirDropdown() {
   setTimeout(() => document.getElementById("busca-municipio").focus(), 50);
 }
 
+let dropdownAberto = false;
+
 function fecharDropdown() {
+  if (document.activeElement === document.getElementById("busca-municipio")) return;
+  dropdownAberto = false;
   document.getElementById("dropdown-municipio").style.display = "none";
   document.getElementById("filtro-municipio").setAttribute("readonly", true);
   // Restaura o nome selecionado
