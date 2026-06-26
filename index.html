@@ -334,6 +334,7 @@ async function onUfChange() {
 
   // Reseta seleção completamente
   hidden.value = "";
+  hidden.setAttribute("value", "");
   input.value = "";
   input.removeAttribute("readonly");
   input.setAttribute("readonly", true);
@@ -359,11 +360,11 @@ async function onUfChange() {
 // ── BUSCA ──
 async function buscar() {
   const uf    = document.getElementById("sel-uf").value;
-  // Usa o hidden só se o campo visual tiver valor visível (não placeholder)
+  // Município: só usa se o campo visual tiver nome real (não vazio nem placeholder)
   const inputMun = document.getElementById("filtro-municipio");
-  const mun = (inputMun.value && inputMun.value.trim() && !inputMun.value.startsWith("—"))
-    ? document.getElementById("sel-municipio").value.trim()
-    : "";
+  const inputVal = inputMun.value.trim();
+  const hiddenVal = document.getElementById("sel-municipio").value.trim();
+  const mun = (inputVal && !inputVal.startsWith("—") && hiddenVal) ? hiddenVal : "";
   const busca = mun || uf;
   const aba   = mun ? "Município" : "Estado";
 
