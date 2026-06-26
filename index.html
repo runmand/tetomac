@@ -359,7 +359,11 @@ async function onUfChange() {
 // ── BUSCA ──
 async function buscar() {
   const uf    = document.getElementById("sel-uf").value;
-  const mun   = document.getElementById("sel-municipio").value.trim();
+  // Usa o hidden só se o campo visual tiver valor visível (não placeholder)
+  const inputMun = document.getElementById("filtro-municipio");
+  const mun = (inputMun.value && inputMun.value.trim() && !inputMun.value.startsWith("—"))
+    ? document.getElementById("sel-municipio").value.trim()
+    : "";
   const busca = mun || uf;
   const aba   = mun ? "Município" : "Estado";
 
