@@ -152,9 +152,29 @@
       </div>
       <div class="filtro-grupo">
         <label>Município <span style="font-weight:400;color:#999">(opcional)</span></label>
-        <select id="sel-municipio">
-          <option value="">— selecione um estado primeiro —</option>
-        </select>
+        <div style="position:relative">
+          <input type="text" id="filtro-municipio"
+            placeholder="— estado completo —"
+            autocomplete="off"
+            style="width:100%;box-sizing:border-box;padding:10px 14px;border:1.5px solid #cdd5de;border-radius:8px;font-size:15px;font-family:inherit;background:#fff;color:#1a2a3a;outline:none;cursor:pointer"
+            oninput="filtrarMunicipios(this.value)"
+            onfocus="abrirDropdown()"
+            onblur="setTimeout(fecharDropdown,200)"
+            readonly
+          />
+          <div id="dropdown-municipio" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid #cdd5de;border-top:none;border-radius:0 0 8px 8px;max-height:260px;overflow-y:auto;z-index:999;box-shadow:0 4px 12px rgba(0,0,0,0.1)">
+            <div style="padding:8px;border-bottom:1px solid #eee;background:#f8f9fa;position:sticky;top:0">
+              <input type="text" id="busca-municipio"
+                placeholder="🔍 Digite para filtrar..."
+                autocomplete="off"
+                style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #cdd5de;border-radius:6px;font-size:14px;font-family:inherit;outline:none"
+                oninput="filtrarMunicipios(this.value)"
+              />
+            </div>
+            <div id="lista-municipios"></div>
+          </div>
+          <input type="hidden" id="sel-municipio" value="" />
+        </div>
       </div>
     </div>
 
@@ -236,28 +256,92 @@ async function carregarUFs() {
 }
 
 // ── MUNICÍPIOS ──
-async function onUfChange() {
-  const uf  = document.getElementById("sel-uf").value;
-  const sel = document.getElementById("sel-municipio");
-  sel.innerHTML = '<option value="">Carregando...</option>';
-  if (!uf) {
-    sel.innerHTML = '<option value="">— selecione um estado primeiro —</option>';
-    return;
+let todosMunicipios = [];
+
+function abrirDropdown() {
+  document.getElementById("filtro-municipio").removeAttribute("readonly");
+  document.getElementById("filtro-municipio").value = "";
+  document.getElementById("busca-municipio").value = "";
+  document.getElementById("dropdown-municipio").style.display = "block";
+  filtrarMunicipios("");
+  setTimeout(() => document.getElementById("busca-municipio").focus(), 50);
+}
+
+function fecharDropdown() {
+  document.getElementById("dropdown-municipio").style.display = "none";
+  document.getElementById("filtro-municipio").setAttribute("readonly", true);
+  // Restaura o nome selecionado
+  const val = document.getElementById("sel-municipio").value;
+  const nome = val ? todosMunicipios.find(m => m.nome === val)?.nome || val : "";
+  document.getElementById("filtro-municipio").value = nome || "";
+  document.getElementById("filtro-municipio").placeholder = "— estado completo —";
+}
+
+function filtrarMunicipios(q) {
+  const lista = document.getElementById("lista-municipios");
+  const termo = q.toLowerCase().trim();
+  const filtrados = termo
+    ? todosMunicipios.filter(m => m.nome.toLowerCase().includes(termo))
+    : todosMunicipios;
+
+  lista.innerHTML = "";
+
+  // Opção "estado completo"
+  const opt0 = document.createElement("div");
+  opt0.textContent = "— estado completo —";
+  opt0.style.cssText = "padding:10px 14px;cursor:pointer;color:#666;font-style:italic;border-bottom:1px solid #eee";
+  opt0.onmousedown = () => selecionarMunicipio("", "— estado completo —");
+  lista.appendChild(opt0);
+
+  filtrados.forEach(m => {
+    const div = document.createElement("div");
+    div.textContent = m.nome;
+    div.style.cssText = "padding:10px 14px;cursor:pointer;border-bottom:1px solid #f0f0f0;font-size:14px";
+    div.onmouseover = () => div.style.background = "#f0f5ff";
+    div.onmouseout  = () => div.style.background = "";
+    div.onmousedown = () => selecionarMunicipio(m.nome, m.nome);
+    lista.appendChild(div);
+  });
+
+  if (filtrados.length === 0) {
+    const vazio = document.createElement("div");
+    vazio.textContent = "Nenhum município encontrado";
+    vazio.style.cssText = "padding:12px 14px;color:#999;font-size:13px";
+    lista.appendChild(vazio);
   }
+}
+
+function selecionarMunicipio(valor, label) {
+  document.getElementById("sel-municipio").value = valor;
+  document.getElementById("filtro-municipio").value = valor ? label : "";
+  document.getElementById("filtro-municipio").placeholder = valor ? "" : "— estado completo —";
+  document.getElementById("dropdown-municipio").style.display = "none";
+  document.getElementById("filtro-municipio").setAttribute("readonly", true);
+}
+
+// ── MUNICÍPIOS ──
+async function onUfChange() {
+  const uf = document.getElementById("sel-uf").value;
+  const input = document.getElementById("filtro-municipio");
+  const hidden = document.getElementById("sel-municipio");
+
+  // Reseta seleção
+  hidden.value = "";
+  input.value = "";
+  input.placeholder = "— selecione um estado primeiro —";
+  todosMunicipios = [];
+
+  if (!uf) return;
+
+  input.placeholder = "Carregando...";
   try {
     const resp = await fetch(`/localidades?uf=${uf}`);
     const rows = await resp.json();
-    sel.innerHTML = '<option value="">— estado completo —</option>';
-    // Filtra apenas gestão municipal e estadual (não Total UF)
-    const muns = rows.filter(r => r.desc_gestao !== "Total UF");
-    muns.forEach(r => {
-      const o = document.createElement("option");
-      o.value = r.nome;
-      o.textContent = r.nome + (r.desc_gestao === "Gestão Estadual" ? " (Estadual)" : "");
-      sel.appendChild(o);
-    });
+    todosMunicipios = rows.filter(r => r.desc_gestao !== "Total UF");
+    input.placeholder = "— estado completo —";
+    input.disabled = false;
   } catch(e) {
-    sel.innerHTML = '<option value="">Erro ao carregar municípios</option>';
+    input.placeholder = "Erro ao carregar municípios";
   }
 }
 
