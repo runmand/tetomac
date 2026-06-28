@@ -166,29 +166,20 @@ def buscar_localidade(nome, aba, uf=""):
     conn = get_conn()
     with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         if aba == "Estado":
-            # 1. Match exato de UF com histórico
+            # Busca APENAS Total UF ou Gestão Estadual — nunca municípios
             cur.execute("""
                 SELECT l.cod_ibge, l.cod_gestao, l.nome FROM localidades l
                 WHERE l.uf = %s
+                AND l.desc_gestao IN ('Total UF', 'Gestão Estadual')
                 AND (l.cod_ibge || l.cod_gestao) IN (
                     SELECT cod_ibge || cod_gestao FROM historico WHERE ano > 0
                 )
+                ORDER BY l.desc_gestao DESC
                 LIMIT 1
             """, (nome.upper(),))
             row = cur.fetchone()
             if not row:
-                # 2. Match por nome com histórico
-                cur.execute("""
-                    SELECT l.cod_ibge, l.cod_gestao, l.nome FROM localidades l
-                    WHERE l.nome ILIKE %s
-                    AND (l.cod_ibge || l.cod_gestao) IN (
-                        SELECT cod_ibge || cod_gestao FROM historico WHERE ano > 0
-                    )
-                    LIMIT 1
-                """, (f"%{nome}%",))
-                row = cur.fetchone()
-            if not row:
-                # 3. Fallback sem histórico
+                # Fallback sem histórico
                 cur.execute("""SELECT cod_ibge, cod_gestao, nome FROM localidades
                               WHERE uf = %s AND desc_gestao IN ('Total UF','Gestão Estadual')
                               ORDER BY desc_gestao DESC LIMIT 1""", (nome.upper(),))
