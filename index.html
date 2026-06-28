@@ -269,6 +269,7 @@ function abrirDropdown() {
 }
 
 let dropdownAberto = false;
+let municipioSelecionado = false;
 
 function fecharDropdown() {
   if (document.activeElement === document.getElementById("busca-municipio")) return;
@@ -317,6 +318,7 @@ function filtrarMunicipios(q) {
 }
 
 function selecionarMunicipio(valor, label) {
+  municipioSelecionado = !!valor;
   document.getElementById("sel-municipio").value = valor || "";
   document.getElementById("filtro-municipio").value = valor ? label : "";
   document.getElementById("filtro-municipio").placeholder = valor ? "" : "— estado completo —";
@@ -333,6 +335,7 @@ async function onUfChange() {
   const hidden = document.getElementById("sel-municipio");
 
   // Reseta seleção completamente
+  municipioSelecionado = false;
   hidden.value = "";
   hidden.setAttribute("value", "");
   input.value = "";
@@ -364,7 +367,7 @@ async function buscar() {
   const inputMun = document.getElementById("filtro-municipio");
   const inputVal = inputMun.value.trim();
   const hiddenVal = document.getElementById("sel-municipio").value.trim();
-  const mun = (inputVal && !inputVal.startsWith("—") && hiddenVal) ? hiddenVal : "";
+  const mun = municipioSelecionado ? hiddenVal : "";
   const busca = mun || uf;
   const aba   = mun ? "Município" : "Estado";
 
