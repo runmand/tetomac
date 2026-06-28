@@ -423,6 +423,27 @@ def debug_busca():
         import traceback
         return jsonify({"erro": str(e), "trace": traceback.format_exc()})
 
+@app.route("/debug-hist")
+def debug_hist():
+    """Mostra todos os registros de historico para um cod_ibge."""
+    cod_ibge = request.args.get("cod", "210000")
+    try:
+        conn = get_conn()
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("""
+                SELECT h.cod_ibge, h.cod_gestao, h.ano, h.valor_total,
+                       l.nome, l.uf, l.desc_gestao
+                FROM historico h
+                LEFT JOIN localidades l ON l.cod_ibge=h.cod_ibge AND l.cod_gestao=h.cod_gestao
+                WHERE h.cod_ibge=%s AND h.ano>0
+                ORDER BY h.cod_gestao, h.ano
+            """, (cod_ibge,))
+            rows = [dict(r) for r in cur.fetchall()]
+        conn.close()
+        return jsonify({"cod_ibge": cod_ibge, "total": len(rows), "dados": rows[:5]})
+    except Exception as e:
+        return jsonify({"erro": str(e)})
+
 @app.route("/exportar-estado", methods=["POST"])
 def exportar_estado():
     """Gera Excel com todos os municípios do estado + compilado do estado."""
